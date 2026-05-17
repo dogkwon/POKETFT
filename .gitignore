@@ -1,0 +1,49 @@
+﻿# Gradle
+.gradle/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log files
+*.log
+
+# Android Studio / IntelliJ
+/.idea/
+*.iml
+*.hprof
+
+# Build folders
+**/build/
+**/captures/
+
+# Generated files
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin/Native
+*.kotlin_module
+
+# NDK
+obj/
+
+# Misc
+.DS_Store
+*.apk
+*.ap_
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services
+/google-services.json
+
+# Android Emulator
+*.lock
+
+# Gradle wrapper
+.gradle/
+
+# Maven local
+.m2/

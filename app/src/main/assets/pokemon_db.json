@@ -1,0 +1,17 @@
+[
+  {"id":149,"dex_no":149,"name_ko":"망나뇽","stats":[91,134,95,100,100,80],"types":["dragon","flying"],"learnable_moves":[89,200,245,337,349,407,416,525,529,14,57,59]},
+  {"id":248,"dex_no":248,"name_ko":"마기라스","stats":[100,134,110,95,100,61],"types":["rock","dark"],"learnable_moves":[89,157,242,269,399,406,444,523,14,59]},
+  {"id":445,"dex_no":445,"name_ko":"한카리아스","stats":[108,130,95,80,85,102],"types":["dragon","ground"],"learnable_moves":[89,200,225,337,406,444,14,59,157]},
+  {"id":448,"dex_no":448,"name_ko":"루카리오","stats":[70,110,70,115,70,90],"types":["fighting","steel"],"learnable_moves":[370,406,430,14,89,157,411]},
+  {"id":94,"dex_no":94,"name_ko":"팬텀","stats":[60,65,60,130,75,110],"types":["ghost","poison"],"learnable_moves":[247,399,411,269,94,85,247,57]},
+  {"id":130,"dex_no":130,"name_ko":"갸라도스","stats":[95,125,79,60,100,81],"types":["water","flying"],"learnable_moves":[89,127,200,242,349,57,14,416]},
+  {"id":658,"dex_no":658,"name_ko":"개굴닌자","stats":[72,95,67,103,71,122],"types":["water","dark"],"learnable_moves":[57,352,399,14,269,352,406,89]},
+  {"id":887,"dex_no":887,"name_ko":"드래펄트","stats":[88,120,75,100,75,142],"types":["dragon","ghost"],"learnable_moves":[200,247,349,406,14,407,525]},
+  {"id":681,"dex_no":681,"name_ko":"킬가르도","stats":[60,50,140,50,140,60],"types":["steel","ghost"],"learnable_moves":[14,247,442,406,533,430]},
+  {"id":59,"dex_no":59,"name_ko":"윈디","stats":[90,110,80,100,80,95],"types":["fire"],"learnable_moves":[394,53,245,14,242,89,200]},
+  {"id":65,"dex_no":65,"name_ko":"후딘","stats":[55,50,45,135,95,120],"types":["psychic"],"learnable_moves":[94,411,269,247,85,399]},
+  {"id":6,"dex_no":6,"name_ko":"리자몽","stats":[78,84,78,109,85,100],"types":["fire","flying"],"learnable_moves":[53,394,200,14,411,89,245,349]},
+  {"id":9,"dex_no":9,"name_ko":"거북왕","stats":[79,83,100,85,105,78],"types":["water"],"learnable_moves":[57,58,352,14,89,200,399]},
+  {"id":3,"dex_no":3,"name_ko":"이상해꽃","stats":[80,82,83,100,100,80],"types":["grass","poison"],"learnable_moves":[202,188,89,14,269,411]},
+  {"id":25,"dex_no":25,"name_ko":"피카츄","stats":[35,55,40,50,50,90],"types":["electric"],"learnable_moves":[85,411,14,57,89,200]}
+]
