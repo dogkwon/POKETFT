@@ -56,12 +56,10 @@ fun CalculatorOverlay(
                 .fillMaxSize()
                 .padding(start = 36.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)
         ) {
-            // 공격자 패널
-            PokemonPanel(
-                label = "공격자",
+            // 공격자 패널 — 등록된 내 포켓몬만 표시
+            AttackerPanel(
                 panel = state.attacker,
                 state = state,
-                target = "attacker",
                 modifier = Modifier.weight(4f)
             )
 
@@ -75,12 +73,10 @@ fun CalculatorOverlay(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // 방어자 패널
-            PokemonPanel(
-                label = "방어자",
+            // 방어자 패널 — 전체 검색
+            DefenderPanel(
                 panel = state.defender,
                 state = state,
-                target = "defender",
                 modifier = Modifier.weight(4f)
             )
         }
@@ -109,13 +105,133 @@ fun CalculatorOverlay(
     }
 }
 
-// ── 포켓몬 패널 (공격자/방어자 공용) ────────────────
+// ── 공격자 패널 — 등록된 내 포켓몬만 표시 ────────────────
 @Composable
-private fun PokemonPanel(
-    label: String,
+private fun AttackerPanel(
     panel: PanelState,
     state: OverlayUIState,
-    target: String,
+    modifier: Modifier
+) {
+    var showMyList by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(8.dp))
+            .background(PokeCard.copy(alpha = 0.9f))
+            .padding(6.dp)
+    ) {
+        // 헤더
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("공격자", color = PokeAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = panel.pokemon?.name_ko ?: "선택 없음",
+                color = PokeTextPri, fontSize = 12.sp, fontWeight = FontWeight.Bold
+            )
+            panel.pokemon?.types?.forEach { type ->
+                Spacer(modifier = Modifier.width(3.dp))
+                TypeBadge(type)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // 내 포켓몬 선택 버튼
+        SmallButton("📋 내 포켓몬", PokeBlue) { showMyList = !showMyList }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        if (showMyList) {
+            // 등록된 포켓몬 리스트
+            if (MyPokemonStore.list.isEmpty()) {
+                Text("등록된 포켓몬 없음\n앱에서 먼저 등록하세요",
+                    color = PokeTextSec, fontSize = 9.sp)
+            } else {
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    MyPokemonStore.list.forEach { save ->
+                        val base = MyPokemonStore.getBasePokemon(save)
+                        if (base != null) {
+                            val nature = save.toNature()
+                            val moveNames = save.moveIds.take(4)
+                                .mapNotNull { Repo.movesById[it]?.name_ko }
+                                .joinToString("/")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (panel.pokemon?.id == base.id) PokeAccent.copy(0.3f)
+                                        else PokeSurface
+                                    )
+                                    .clickable {
+                                        panel.loadFromSave(base, save)
+                                        showMyList = false
+                                    }
+                                    .padding(4.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row {
+                                        Text(base.name_ko, color = PokeTextPri, fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        base.types.forEach { t ->
+                                            TypeBadge(t)
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                        }
+                                    }
+                                    Text("${nature.nameKo} | $moveNames",
+                                        color = PokeTextSec, fontSize = 8.sp,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // 포켓몬 상세 (선택 후)
+            val pokemon = panel.pokemon
+            if (pokemon != null) {
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                    StatsDisplay(panel)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // 등록된 기술만 표시
+                    Text("기술:", color = PokeTextSec, fontSize = 9.sp)
+                    val myPokeSave = MyPokemonStore.list.find { it.pokemonId == pokemon.id }
+                    val moveIds = myPokeSave?.moveIds ?: emptyList()
+                    moveIds.mapNotNull { Repo.movesById[it] }.forEach { move ->
+                        MoveRow(move, panel, state)
+                    }
+                }
+
+                Row {
+                    SmallButton("${panel.nature.nameKo}", PokeYellow) {}
+                    if (pokemon.abilities.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        SmallButton(
+                            "특성: ${panel.selectedAbilityKo.ifEmpty { pokemon.abilities[0].name_ko }}",
+                            Color(0xFF9B59B6)
+                        ) { panel.cycleAbility() }
+                    }
+                }
+                SmallButton(
+                    "도구: ${BattleContext.labelKo(BattleContext.ATTACKER_HELD, panel.heldItemId)}",
+                    Color(0xFF16A085)
+                ) { panel.cycleHeldItem(BattleContext.ATTACKER_HELD) }
+            }
+        }
+    }
+}
+
+// ── 방어자 패널 — 전체 검색 + EV/성격 조절 ────────────────
+@Composable
+private fun DefenderPanel(
+    panel: PanelState,
+    state: OverlayUIState,
     modifier: Modifier
 ) {
     Column(
@@ -125,17 +241,14 @@ private fun PokemonPanel(
             .background(PokeCard.copy(alpha = 0.9f))
             .padding(6.dp)
     ) {
-        // 헤더: 라벨 + 포켓몬 이름
+        // 헤더
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, color = PokeAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("방어자", color = PokeAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = panel.pokemon?.name_ko ?: "선택 없음",
-                color = PokeTextPri,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
+                color = PokeTextPri, fontSize = 12.sp, fontWeight = FontWeight.Bold
             )
-            // 타입 뱃지
             panel.pokemon?.types?.forEach { type ->
                 Spacer(modifier = Modifier.width(3.dp))
                 TypeBadge(type)
@@ -144,43 +257,42 @@ private fun PokemonPanel(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // 검색 버튼
-        SmallButton(
-            text = "🔍 포켓몬 검색",
-            color = PokeBlue
-        ) {
-            state.searchPopupTarget = target
+        SmallButton("🔍 포켓몬 검색", PokeBlue) {
+            state.searchPopupTarget = "defender"
             state.showSearchPopup = true
         }
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // 포켓몬 선택됐을 때 상세 표시
         val pokemon = panel.pokemon
         if (pokemon != null) {
-            // 스탯 표시 (스크롤 가능)
+            // 특성 표시 + 순환 버튼
+            if (pokemon.abilities.isNotEmpty()) {
+                SmallButton(
+                    "특성: ${panel.selectedAbilityKo.ifEmpty { pokemon.abilities[0].name_ko }}",
+                    Color(0xFF9B59B6)
+                ) { panel.cycleAbility() }
+            }
+            SmallButton(
+                "도구: ${BattleContext.labelKo(BattleContext.DEFENDER_HELD, panel.heldItemId)}",
+                Color(0xFF16A085)
+            ) { panel.cycleHeldItem(BattleContext.DEFENDER_HELD) }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
             Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 StatsDisplay(panel)
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // 기술 목록
-                Text("기술:", color = PokeTextSec, fontSize = 9.sp)
-                val moves = Repo.getLearnableMoves(pokemon)
-                moves.take(8).forEach { move ->
-                    MoveRow(move, panel, state)
-                }
             }
 
-            // 하단 버튼들
+            // EV + 성격 조절 버튼
             Row {
                 SmallButton("EV", PokeGreen) {
-                    state.evPopupTarget = target
+                    state.evPopupTarget = "defender"
                     state.showEvPopup = true
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 SmallButton("성격: ${panel.nature.nameKo}", PokeYellow) {
-                    state.naturePopupTarget = target
+                    state.naturePopupTarget = "defender"
                     state.showNaturePopup = true
                 }
             }
@@ -194,41 +306,58 @@ private fun ControlPanel(state: OverlayUIState, modifier: Modifier) {
     Column(
         modifier = modifier
             .fillMaxHeight()
+            .verticalScroll(rememberScrollState())
             .clip(RoundedCornerShape(8.dp))
             .background(PokeCard.copy(alpha = 0.9f))
             .padding(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 스왑 버튼
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .background(PokeBlue)
                 .clickable { state.swap() }
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
             contentAlignment = Alignment.Center
         ) {
             Text("🔄\n스왑", color = Color.White, fontSize = 10.sp,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         }
 
-        // 초기화 버튼
+        Spacer(modifier = Modifier.height(4.dp))
+
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .background(PokeRed.copy(alpha = 0.7f))
                 .clickable { state.resetAll() }
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
             contentAlignment = Alignment.Center
         ) {
             Text("✖\n초기화", color = Color.White, fontSize = 10.sp,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // ── 데미지 계산 결과 ──
+        Text("환경", color = PokeAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(2.dp))
+        SmallButton(
+            "날씨: ${BattleContext.labelKo(BattleContext.WEATHERS, state.weatherId)}",
+            PokeYellow
+        ) {
+            state.weatherId = BattleContext.nextId(BattleContext.WEATHERS, state.weatherId)
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        SmallButton(
+            "필드: ${BattleContext.labelKo(BattleContext.TERRAINS, state.terrainId)}",
+            Color(0xFF8E44AD)
+        ) {
+            state.terrainId = BattleContext.nextId(BattleContext.TERRAINS, state.terrainId)
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
         DamageResultSection(state)
     }
 }
@@ -242,90 +371,158 @@ private fun DamageResultSection(state: OverlayUIState) {
     val move = if (moveId > 0) Repo.movesById[moveId] else null
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        if (atkPoke != null && defPoke != null && move != null) {
-            // 공격/방어 실수치 계산
+        // ── 스피드 비교 (양쪽 포켓몬만 있으면 항상 표시) ──
+        if (atkPoke != null && defPoke != null) {
             val atkStats = state.attacker.calcActualStats()
             val defStats = state.defender.calcActualStats()
 
-            // 물리 vs 특수
-            val isPhysical = move.category == "physical"
-            val atkStatIdx = if (isPhysical) 1 else 3 // Atk or SpA
-            val defStatIdx = if (isPhysical) 2 else 4 // Def or SpD
-            val atkRankIdx = if (isPhysical) 0 else 2
-            val defRankIdx = if (isPhysical) 1 else 3
-
-            val atkVal = floor(atkStats[atkStatIdx] * CalcEngine.rankMultiplier(state.attacker.ranks[atkRankIdx])).toInt()
-            val defVal = floor(defStats[defStatIdx] * CalcEngine.rankMultiplier(state.defender.ranks[defRankIdx])).toInt()
-
-            // STAB + 타입 상성
-            val stab = CalcEngine.isStab(move.type, atkPoke.types)
-            val typeEff = CalcEngine.typeEffectivenessMulti(move.type, defPoke.types)
-
-            val (minDmg, maxDmg) = CalcEngine.calcDamage(move.power, atkVal, defVal, stab, typeEff)
-
-            // HP 대비 퍼센트
-            val defHp = defStats[0]
-            val minPct = if (defHp > 0) (minDmg * 100.0 / defHp) else 0.0
-            val maxPct = if (defHp > 0) (maxDmg * 100.0 / defHp) else 0.0
-
-            // 기술 이름
-            Text(move.name_ko, color = PokeTextPri, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-
-            // 타입 상성 표시
-            val effText = when {
-                typeEff >= 4.0 -> "★ 4배!"
-                typeEff >= 2.0 -> "◎ 2배"
-                typeEff <= 0.0 -> "✕ 무효"
-                typeEff < 1.0 -> "△ 반감"
-                else -> "● 등배"
-            }
-            val effColor = when {
-                typeEff >= 2.0 -> PokeGreen
-                typeEff <= 0.0 -> Color.Gray
-                typeEff < 1.0 -> PokeRed
-                else -> PokeTextSec
-            }
-            Text(effText, color = effColor, fontSize = 9.sp)
-
-            if (stab) {
-                Text("자속 1.5x", color = PokeYellow, fontSize = 8.sp)
-            }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            // 데미지 수치
-            Text(
-                text = "$minDmg~$maxDmg",
-                color = PokeAccent,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
+            val atkSpe = CalcEngine.effectiveSpeed(
+                atkStats[5], state.attacker.ranks[4], state.attacker.selectedAbility,
+                state.weatherId, state.attacker.heldItemId
             )
-            Text(
-                text = "${"%.1f".format(minPct)}%~${"%.1f".format(maxPct)}%",
-                color = PokeTextSec,
-                fontSize = 10.sp
+            val defSpe = CalcEngine.effectiveSpeed(
+                defStats[5], state.defender.ranks[4], state.defender.selectedAbility,
+                state.weatherId, state.defender.heldItemId
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 스피드 비교
-            val atkSpe = floor(atkStats[5] * CalcEngine.rankMultiplier(state.attacker.ranks[4])).toInt()
-            val defSpe = floor(defStats[5] * CalcEngine.rankMultiplier(state.defender.ranks[4])).toInt()
-
-            val speedColor = when {
-                atkSpe > defSpe -> PokeGreen
-                atkSpe < defSpe -> PokeRed
-                else -> PokeYellow
+            val fasterName: String
+            val speedColor: Color
+            when {
+                atkSpe > defSpe -> {
+                    fasterName = atkPoke.name_ko
+                    speedColor = PokeGreen
+                }
+                defSpe > atkSpe -> {
+                    fasterName = defPoke.name_ko
+                    speedColor = PokeGreen
+                }
+                else -> {
+                    fasterName = ""
+                    speedColor = PokeYellow
+                }
             }
-            val speedText = when {
-                atkSpe > defSpe -> "선공 ▶"
-                atkSpe < defSpe -> "◀ 후공"
-                else -> "동속"
+
+            val speedLabel = if (fasterName.isEmpty()) "동속" else "$fasterName 선공"
+            Text(speedLabel, color = speedColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("${atkPoke.name_ko} $atkSpe vs $defSpe ${defPoke.name_ko}",
+                color = PokeTextSec, fontSize = 7.sp)
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // ── 데미지 계산 (기술도 선택됐을 때) ──
+            if (move != null) {
+                val isPhysical = move.category == "physical"
+                val atkStatIdx = if (isPhysical) 1 else 3
+                val defStatIdx = if (isPhysical) 2 else 4
+                val atkRankIdx = if (isPhysical) 0 else 2
+                val defRankIdx = if (isPhysical) 1 else 3
+
+                val atkRanked = floor(atkStats[atkStatIdx] * CalcEngine.rankMultiplier(state.attacker.ranks[atkRankIdx])).toInt()
+                val defRanked = floor(defStats[defStatIdx] * CalcEngine.rankMultiplier(state.defender.ranks[defRankIdx])).toInt()
+
+                val atkVal = CalcEngine.adjustedAttackStat(
+                    atkRanked, isPhysical, state.attacker.heldItemId,
+                    state.attacker.selectedAbility, state.weatherId
+                )
+                val defVal = CalcEngine.adjustedDefenseStat(
+                    defRanked, isPhysical, defPoke.types, state.weatherId, state.defender.heldItemId
+                )
+
+                val stab = CalcEngine.isStab(move.type, atkPoke.types)
+                var typeEff = CalcEngine.typeEffectivenessMulti(move.type, defPoke.types)
+
+                // 특성: 면역 체크
+                val defAb = state.defender.selectedAbility
+                val atkAb = state.attacker.selectedAbility
+                val isImmune = CalcEngine.isAbilityImmune(defAb, move.type)
+
+                val envMul = CalcEngine.environmentDamageMultiplier(
+                    state.weatherId, state.terrainId, move.type, atkAb
+                )
+                val lifeOrbMul = if (state.attacker.heldItemId == "life-orb") 1.3 else 1.0
+
+                if (isImmune) {
+                    // 특성 면역
+                    Text(move.name_ko, color = PokeTextPri, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("✕ 특성 면역", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("(${state.defender.selectedAbilityKo})",
+                        color = PokeTextSec, fontSize = 8.sp)
+                } else {
+                    // 특성 타입 보정
+                    typeEff *= CalcEngine.abilityTypeModifier(defAb, move.type)
+                    val expertMul =
+                        if (state.attacker.heldItemId == "expert-belt" && typeEff > 1.0) 1.2 else 1.0
+
+                    val (minDmg, maxDmg) = CalcEngine.calcDamage(
+                        move.power, atkVal, defVal, stab, typeEff,
+                        atkAbility = atkAb, defAbility = defAb,
+                        moveType = move.type,
+                        isPhysical = isPhysical,
+                        environmentMul = envMul,
+                        expertBeltMul = expertMul,
+                        lifeOrbMul = lifeOrbMul
+                    )
+
+                    val defHp = defStats[0]
+                    val minPct = if (defHp > 0) (minDmg * 100.0 / defHp) else 0.0
+                    val maxPct = if (defHp > 0) (maxDmg * 100.0 / defHp) else 0.0
+
+                    // 기술 이름
+                    Text(move.name_ko, color = PokeTextPri, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+
+                    // 타입 상성
+                    val effText = when {
+                        typeEff >= 4.0 -> "★ 4배!"
+                        typeEff >= 2.0 -> "◎ 2배"
+                        typeEff <= 0.0 -> "✕ 무효"
+                        typeEff < 1.0 -> "△ 반감"
+                        else -> "● 등배"
+                    }
+                    val effColor = when {
+                        typeEff >= 2.0 -> PokeGreen
+                        typeEff <= 0.0 -> Color.Gray
+                        typeEff < 1.0 -> PokeRed
+                        else -> PokeTextSec
+                    }
+                    Text(effText, color = effColor, fontSize = 9.sp)
+
+                    if (stab || atkAb in listOf("protean", "libero")) {
+                        val stabLabel = if (atkAb == "adaptability") "자속 2.0x" else "자속 1.5x"
+                        Text(stabLabel, color = PokeYellow, fontSize = 8.sp)
+                    }
+                    if (defAb == "multiscale") {
+                        Text("멀티스케일 0.5x", color = PokeYellow, fontSize = 8.sp)
+                    }
+                    if (envMul != 1.0) {
+                        Text("날씨·필드 ×${"%.2f".format(envMul)}", color = PokeYellow, fontSize = 8.sp)
+                    }
+                    if (expertMul > 1.0) {
+                        Text("고집스카프 1.2x", color = PokeYellow, fontSize = 8.sp)
+                    }
+                    if (lifeOrbMul > 1.0) {
+                        Text("생명구슬 1.3x", color = PokeYellow, fontSize = 8.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = "$minDmg~$maxDmg",
+                        color = PokeAccent,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${"%.1f".format(minPct)}%~${"%.1f".format(maxPct)}%",
+                        color = PokeTextSec,
+                        fontSize = 10.sp
+                    )
+                }
+            } else {
+                Text("기술을 선택하세요",
+                    color = PokeTextSec, fontSize = 9.sp, textAlign = TextAlign.Center)
             }
-            Text(speedText, color = speedColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text("$atkSpe vs $defSpe", color = PokeTextSec, fontSize = 8.sp)
         } else {
-            Text("양쪽 포켓몬과\n기술을 선택하세요",
+            Text("양쪽 포켓몬을\n선택하세요",
                 color = PokeTextSec, fontSize = 9.sp, textAlign = TextAlign.Center)
         }
     }
@@ -502,8 +699,9 @@ private fun SearchPopup(state: OverlayUIState, onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                state.getPanel(state.searchPopupTarget).pokemon = pokemon
-                                state.getPanel(state.searchPopupTarget).selectedMoveId = -1
+                                val p = state.getPanel(state.searchPopupTarget)
+                                val resetBuild = state.searchPopupTarget == "defender"
+                                p.selectPokemon(pokemon, resetBuild = resetBuild)
                                 onDismiss()
                             }
                             .padding(vertical = 4.dp, horizontal = 4.dp)

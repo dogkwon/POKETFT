@@ -5,9 +5,17 @@ data class Pokemon(
     val id: Int,
     val dex_no: Int,
     val name_ko: String,
-    val stats: List<Int>,          // [HP, Atk, Def, SpA, SpD, Spe]
-    val types: List<String>,       // ["fire","flying"] 등
-    val learnable_moves: List<Int> // 기술 ID 목록
+    val stats: List<Int>,            // [HP, Atk, Def, SpA, SpD, Spe]
+    val types: List<String>,         // ["fire","flying"] 등
+    val abilities: List<AbilityInfo> = emptyList(),
+    val learnable_moves: List<Int>   // 기술 ID 목록
+)
+
+/** 특성 정보 */
+data class AbilityInfo(
+    val name_ko: String,
+    val name_en: String = "",
+    val is_hidden: Boolean = false
 )
 
 /** 기술 데이터 */
@@ -35,10 +43,7 @@ data class NatureData(
     }
 
     companion object {
-        // 성격 표 — [행=상승스탯][열=하락스탯]
-        // 인덱스: 0=Atk행, 1=Def행, 2=SpA행, 3=SpD행, 4=Spe행
         val GRID: Array<Array<NatureData>> = arrayOf(
-            // +Atk 행: -Atk, -Def, -SpA, -SpD, -Spe
             arrayOf(
                 NatureData("노력", 1, 1),
                 NatureData("외로움", 1, 2),
@@ -46,7 +51,6 @@ data class NatureData(
                 NatureData("개구쟁이", 1, 4),
                 NatureData("용감", 1, 5)
             ),
-            // +Def 행
             arrayOf(
                 NatureData("대담", 2, 1),
                 NatureData("온순", 2, 2),
@@ -54,7 +58,6 @@ data class NatureData(
                 NatureData("촐랑", 2, 4),
                 NatureData("무사태평", 2, 5)
             ),
-            // +SpA 행
             arrayOf(
                 NatureData("조심", 3, 1),
                 NatureData("얌전", 3, 2),
@@ -62,7 +65,6 @@ data class NatureData(
                 NatureData("덜렁", 3, 4),
                 NatureData("냉정", 3, 5)
             ),
-            // +SpD 행
             arrayOf(
                 NatureData("차분", 4, 1),
                 NatureData("온화", 4, 2),
@@ -70,7 +72,6 @@ data class NatureData(
                 NatureData("변덕", 4, 4),
                 NatureData("건방", 4, 5)
             ),
-            // +Spe 행
             arrayOf(
                 NatureData("겁쟁이", 5, 1),
                 NatureData("성급", 5, 2),
@@ -80,8 +81,7 @@ data class NatureData(
             )
         )
 
-        /** 기본 무보정 성격 */
-        val NEUTRAL = GRID[0][0] // 노력
+        val NEUTRAL = GRID[0][0]
         val STAT_LABELS = arrayOf("공격", "방어", "특공", "특방", "스피드")
     }
 }
