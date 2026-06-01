@@ -3,6 +3,7 @@ package com.poketft.overlay
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -56,28 +57,21 @@ fun CalculatorOverlay(
                 .fillMaxSize()
                 .padding(start = 36.dp, top = 4.dp, end = 4.dp, bottom = 4.dp)
         ) {
-            // 공격자 패널 — 등록된 내 포켓몬만 표시
             AttackerPanel(
                 panel = state.attacker,
                 state = state,
-                modifier = Modifier.weight(4f)
+                modifier = Modifier.weight(3f)
             )
-
             Spacer(modifier = Modifier.width(4.dp))
-
-            // 컨트롤 패널
             ControlPanel(
                 state = state,
-                modifier = Modifier.weight(1.2f)
+                modifier = Modifier.weight(2f)
             )
-
             Spacer(modifier = Modifier.width(4.dp))
-
-            // 방어자 패널 — 전체 검색
             DefenderPanel(
                 panel = state.defender,
                 state = state,
-                modifier = Modifier.weight(4f)
+                modifier = Modifier.weight(3f)
             )
         }
 
@@ -100,6 +94,19 @@ fun CalculatorOverlay(
             NaturePopup(
                 panel = state.getPanel(state.naturePopupTarget),
                 onDismiss = { state.showNaturePopup = false }
+            )
+        }
+        if (state.showRankPopup) {
+            RankPopup(
+                panel = state.getPanel(state.rankPopupTarget),
+                onDismiss = { state.showRankPopup = false }
+            )
+        }
+        if (state.showMoveSelectPopup) {
+            MoveSelectPopup(
+                panel = state.getPanel(state.moveSelectTarget),
+                slotIdx = state.moveSelectSlotIdx,
+                onDismiss = { state.showMoveSelectPopup = false }
             )
         }
     }
@@ -192,42 +199,38 @@ private fun AttackerPanel(
                 }
             }
         } else {
-            // 포켓몬 상세 (선택 후)
             val pokemon = panel.pokemon
             if (pokemon != null) {
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    StatsDisplay(panel)
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // 등록된 기술만 표시
-                    Text("기술:", color = PokeTextSec, fontSize = 9.sp)
-                    val myPokeSave = MyPokemonStore.list.find { it.pokemonId == pokemon.id }
-                    val moveIds = myPokeSave?.moveIds ?: emptyList()
-                    moveIds.mapNotNull { Repo.movesById[it] }.forEach { move ->
+                    panel.assignedMoveIds.mapNotNull { Repo.movesById[it] }.forEach { move ->
                         MoveRow(move, panel, state)
                     }
                 }
-
-                Row {
-                    SmallButton("${panel.nature.nameKo}", PokeYellow) {}
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    SmallButton(panel.nature.nameKo, PokeYellow) {}
                     if (pokemon.abilities.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(4.dp))
                         SmallButton(
-                            "특성: ${panel.selectedAbilityKo.ifEmpty { pokemon.abilities[0].name_ko }}",
+                            panel.selectedAbilityKo.ifEmpty { pokemon.abilities[0].name_ko },
                             Color(0xFF9B59B6)
                         ) { panel.cycleAbility() }
                     }
                 }
-                SmallButton(
-                    "도구: ${BattleContext.labelKo(BattleContext.ATTACKER_HELD, panel.heldItemId)}",
-                    Color(0xFF16A085)
-                ) { panel.cycleHeldItem(BattleContext.ATTACKER_HELD) }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    SmallButton(
+                        "도구:${BattleContext.labelKo(BattleContext.ATTACKER_HELD, panel.heldItemId)}",
+                        Color(0xFF16A085)
+                    ) { panel.cycleHeldItem(BattleContext.ATTACKER_HELD) }
+                    SmallButton(
+                        "벽:${BattleContext.labelKo(BattleContext.WALLS, panel.wallId)}",
+                        Color(0xFF2980B9)
+                    ) { panel.cycleWall() }
+                }
             }
         }
     }
 }
 
-// ── 방어자 패널 — 전체 검색 + EV/성격 조절 ────────────────
+// ── 방어자 패널 ────────────────
 @Composable
 private fun DefenderPanel(
     panel: PanelState,
@@ -241,60 +244,71 @@ private fun DefenderPanel(
             .background(PokeCard.copy(alpha = 0.9f))
             .padding(6.dp)
     ) {
-        // 헤더
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("방어자", color = PokeAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = panel.pokemon?.name_ko ?: "선택 없음",
-                color = PokeTextPri, fontSize = 12.sp, fontWeight = FontWeight.Bold
-            )
+            Text(panel.pokemon?.name_ko ?: "선택 없음",
+                color = PokeTextPri, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             panel.pokemon?.types?.forEach { type ->
-                Spacer(modifier = Modifier.width(3.dp))
-                TypeBadge(type)
+                Spacer(modifier = Modifier.width(3.dp)); TypeBadge(type)
             }
         }
-
         Spacer(modifier = Modifier.height(4.dp))
-
-        SmallButton("🔍 포켓몬 검색", PokeBlue) {
-            state.searchPopupTarget = "defender"
-            state.showSearchPopup = true
+        SmallButton("🔍 검색", PokeBlue) {
+            state.searchPopupTarget = "defender"; state.showSearchPopup = true
         }
-
         Spacer(modifier = Modifier.height(4.dp))
-
         val pokemon = panel.pokemon
         if (pokemon != null) {
-            // 특성 표시 + 순환 버튼
-            if (pokemon.abilities.isNotEmpty()) {
-                SmallButton(
-                    "특성: ${panel.selectedAbilityKo.ifEmpty { pokemon.abilities[0].name_ko }}",
-                    Color(0xFF9B59B6)
-                ) { panel.cycleAbility() }
-            }
-            SmallButton(
-                "도구: ${BattleContext.labelKo(BattleContext.DEFENDER_HELD, panel.heldItemId)}",
-                Color(0xFF16A085)
-            ) { panel.cycleHeldItem(BattleContext.DEFENDER_HELD) }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                StatsDisplay(panel)
-            }
-
-            // EV + 성격 조절 버튼
-            Row {
-                SmallButton("EV", PokeGreen) {
-                    state.evPopupTarget = "defender"
-                    state.showEvPopup = true
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                if (pokemon.abilities.isNotEmpty()) {
+                    SmallButton(panel.selectedAbilityKo.ifEmpty { pokemon.abilities[0].name_ko },
+                        Color(0xFF9B59B6)) { panel.cycleAbility() }
                 }
-                Spacer(modifier = Modifier.width(4.dp))
-                SmallButton("성격: ${panel.nature.nameKo}", PokeYellow) {
-                    state.naturePopupTarget = "defender"
-                    state.showNaturePopup = true
+                SmallButton("도구:${BattleContext.labelKo(BattleContext.DEFENDER_HELD, panel.heldItemId)}",
+                    Color(0xFF16A085)) { panel.cycleHeldItem(BattleContext.DEFENDER_HELD) }
+            }
+            Spacer(modifier = Modifier.height(3.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                for (slotIdx in 0 until 4) {
+                    val moveId = panel.assignedMoveIds.getOrNull(slotIdx)
+                    val move = if (moveId != null) Repo.movesById[moveId] else null
+                    val isSelected = moveId != null && panel.selectedMoveId == moveId
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (isSelected) PokeAccent.copy(0.3f) else if (move != null) PokeSurface else PokeBorder.copy(0.3f))
+                            .clickable {
+                                if (move != null) { panel.selectedMoveId = moveId!! }
+                                else { state.moveSelectTarget = "defender"; state.moveSelectSlotIdx = slotIdx; state.showMoveSelectPopup = true }
+                            }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        if (move != null) {
+                            TypeBadge(move.type); Spacer(Modifier.width(2.dp))
+                            Text(if (move.category == "physical") "⚔" else "✦", fontSize = 8.sp, color = PokeTextSec)
+                            Spacer(Modifier.width(2.dp))
+                            Text(move.name_ko, color = if (isSelected) PokeTextPri else PokeTextSec,
+                                fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text("${move.power}", color = PokeTextSec, fontSize = 9.sp)
+                            Spacer(Modifier.width(2.dp))
+                            Box(Modifier.size(14.dp).clip(RoundedCornerShape(2.dp)).background(PokeRed.copy(0.5f))
+                                .clickable { if (panel.selectedMoveId == moveId) panel.selectedMoveId = -1; panel.assignedMoveIds.removeAt(slotIdx) },
+                                contentAlignment = Alignment.Center) { Text("✕", color = Color.White, fontSize = 7.sp) }
+                        } else {
+                            Text("+ 기술 추가", color = PokeTextSec, fontSize = 9.sp,
+                                modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+                        }
+                    }
                 }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                SmallButton("EV", PokeGreen) { state.evPopupTarget = "defender"; state.showEvPopup = true }
+                SmallButton(panel.nature.nameKo, PokeYellow) { state.naturePopupTarget = "defender"; state.showNaturePopup = true }
+                SmallButton("Rank", Color(0xFFE67E22)) { state.rankPopupTarget = "defender"; state.showRankPopup = true }
+                SmallButton("벽:${BattleContext.labelKo(BattleContext.WALLS, panel.wallId)}",
+                    Color(0xFF2980B9)) { panel.cycleWall() }
             }
         }
     }
@@ -355,6 +369,12 @@ private fun ControlPanel(state: OverlayUIState, modifier: Modifier) {
         ) {
             state.terrainId = BattleContext.nextId(BattleContext.TERRAINS, state.terrainId)
         }
+
+        Spacer(modifier = Modifier.height(2.dp))
+        SmallButton(
+            "급소: ${if (state.isCritical) "ON" else "OFF"}",
+            if (state.isCritical) PokeRed else PokeBorder
+        ) { state.isCritical = !state.isCritical }
 
         Spacer(modifier = Modifier.height(6.dp))
 
@@ -417,8 +437,15 @@ private fun DamageResultSection(state: OverlayUIState) {
                 val atkRankIdx = if (isPhysical) 0 else 2
                 val defRankIdx = if (isPhysical) 1 else 3
 
-                val atkRanked = floor(atkStats[atkStatIdx] * CalcEngine.rankMultiplier(state.attacker.ranks[atkRankIdx])).toInt()
-                val defRanked = floor(defStats[defStatIdx] * CalcEngine.rankMultiplier(state.defender.ranks[defRankIdx])).toInt()
+                val atkRankForCalc = if (state.isCritical) {
+                    state.attacker.ranks[atkRankIdx].coerceAtLeast(0)
+                } else { state.attacker.ranks[atkRankIdx] }
+                val defRankForCalc = if (state.isCritical) {
+                    state.defender.ranks[defRankIdx].coerceAtMost(0)
+                } else { state.defender.ranks[defRankIdx] }
+
+                val atkRanked = floor(atkStats[atkStatIdx] * CalcEngine.rankMultiplier(atkRankForCalc)).toInt()
+                val defRanked = floor(defStats[defStatIdx] * CalcEngine.rankMultiplier(defRankForCalc)).toInt()
 
                 val atkVal = CalcEngine.adjustedAttackStat(
                     atkRanked, isPhysical, state.attacker.heldItemId,
@@ -441,6 +468,15 @@ private fun DamageResultSection(state: OverlayUIState) {
                 )
                 val lifeOrbMul = if (state.attacker.heldItemId == "life-orb") 1.3 else 1.0
 
+                val criticalMul = if (state.isCritical) 1.5 else 1.0
+                val defWall = state.defender.wallId
+                val wallMul = when {
+                    state.isCritical -> 1.0
+                    isPhysical && defWall in listOf("reflect", "aurora-veil") -> 0.5
+                    !isPhysical && defWall in listOf("light-screen", "aurora-veil") -> 0.5
+                    else -> 1.0
+                }
+
                 if (isImmune) {
                     // 특성 면역
                     Text(move.name_ko, color = PokeTextPri, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -460,7 +496,9 @@ private fun DamageResultSection(state: OverlayUIState) {
                         isPhysical = isPhysical,
                         environmentMul = envMul,
                         expertBeltMul = expertMul,
-                        lifeOrbMul = lifeOrbMul
+                        lifeOrbMul = lifeOrbMul,
+                        criticalMul = criticalMul,
+                        wallMul = wallMul
                     )
 
                     val defHp = defStats[0]
@@ -490,8 +528,20 @@ private fun DamageResultSection(state: OverlayUIState) {
                         val stabLabel = if (atkAb == "adaptability") "자속 2.0x" else "자속 1.5x"
                         Text(stabLabel, color = PokeYellow, fontSize = 8.sp)
                     }
-                    if (defAb == "multiscale") {
+                    if (state.isCritical) {
+                        Text("급소! 1.5x", color = PokeRed, fontSize = 8.sp)
+                    }
+                    if (defAb == "multiscale" && !state.isCritical) {
                         Text("멀티스케일 0.5x", color = PokeYellow, fontSize = 8.sp)
+                    }
+                    if (wallMul < 1.0) {
+                        val wallLabel = when (defWall) {
+                            "reflect" -> "리플렉터 0.5x"
+                            "light-screen" -> "빛의장막 0.5x"
+                            "aurora-veil" -> "오로라베일 0.5x"
+                            else -> "벽 0.5x"
+                        }
+                        Text(wallLabel, color = PokeBlue, fontSize = 8.sp)
                     }
                     if (envMul != 1.0) {
                         Text("날씨·필드 ×${"%.2f".format(envMul)}", color = PokeYellow, fontSize = 8.sp)

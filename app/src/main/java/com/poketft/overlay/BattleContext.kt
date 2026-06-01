@@ -43,6 +43,14 @@ object BattleContext {
         Option("iron-ball", "아이언볼")
     )
 
+    /** 벽 (리플렉터 / 빛의장막 / 오로라베일) */
+    val WALLS = listOf(
+        Option("none", "벽 없음"),
+        Option("reflect", "리플렉터"),
+        Option("light-screen", "빛의장막"),
+        Option("aurora-veil", "오로라베일")
+    )
+
     fun labelKo(options: List<Option>, id: String): String =
         options.find { it.id == id }?.labelKo ?: id
 

@@ -125,14 +125,16 @@ object CalcEngine {
     // ── 데미지 계산 (특성 효과 포함) ──────────────────────────
 
     /**
-     * @param power      기술 위력
-     * @param attack     공격 실수치 (랭크 보정 후)
-     * @param defense    방어 실수치 (랭크 보정 후)
-     * @param stab       자속 보정
-     * @param typeEff    타입 상성 배율
-     * @param atkAbility 공격자 특성 (영어명)
-     * @param defAbility 방어자 특성 (영어명)
-     * @param moveType   기술 타입 (특성 판정용)
+     * @param power       기술 위력
+     * @param attack      공격 실수치 (랭크 보정 후)
+     * @param defense     방어 실수치 (랭크 보정 후)
+     * @param stab        자속 보정
+     * @param typeEff     타입 상성 배율
+     * @param atkAbility  공격자 특성 (영어명)
+     * @param defAbility  방어자 특성 (영어명)
+     * @param moveType    기술 타입 (특성 판정용)
+     * @param criticalMul 급소 배율 (1.0 = 일반, 1.5 = 급소)
+     * @param wallMul     벽 배율 (1.0 = 없음, 0.5 = 리플렉터/빛의장막/오로라베일)
      */
     fun calcDamage(
         power: Int, attack: Int, defense: Int,
@@ -142,7 +144,9 @@ object CalcEngine {
         isPhysical: Boolean = true,
         environmentMul: Double = 1.0,
         expertBeltMul: Double = 1.0,
-        lifeOrbMul: Double = 1.0
+        lifeOrbMul: Double = 1.0,
+        criticalMul: Double = 1.0,
+        wallMul: Double = 1.0
     ): Pair<Int, Int> {
         if (power <= 0 || defense <= 0) return 0 to 0
 
@@ -190,10 +194,10 @@ object CalcEngine {
         // 모피코트(Fur Coat): 물리 방어 2배 → 데미지 0.5배
         if (defAbility == "fur-coat" && isPhysical) defMul *= 0.5
         // 멀티스케일(Multiscale): 풀체력 0.5배 (오버레이는 풀HP 가정)
-        if (defAbility == "multiscale") defMul *= 0.5
+        if (defAbility == "multiscale" && criticalMul <= 1.0) defMul *= 0.5
 
         val total = base * stabMul * effTypeEff * atkMul * defMul *
-            environmentMul * expertBeltMul * lifeOrbMul
+            environmentMul * expertBeltMul * lifeOrbMul * criticalMul * wallMul
         val minDmg = floor(total * 0.85).toInt().coerceAtLeast(1)
         val maxDmg = floor(total).toInt().coerceAtLeast(1)
         return minDmg to maxDmg

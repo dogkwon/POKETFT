@@ -2696,182 +2696,182 @@
  },
  {
   "id": 827,
-  "name_ko": "dire-claw",
+  "name_ko": "비장의발톱",
   "power": 80,
   "type": "poison",
   "category": "physical"
  },
  {
   "id": 828,
-  "name_ko": "psyshield-bash",
+  "name_ko": "사이코배리어러시",
   "power": 70,
   "type": "psychic",
   "category": "physical"
  },
  {
   "id": 830,
-  "name_ko": "stone-axe",
+  "name_ko": "돌도끼",
   "power": 65,
   "type": "rock",
   "category": "physical"
  },
  {
   "id": 833,
-  "name_ko": "raging-fury",
+  "name_ko": "대분노",
   "power": 120,
   "type": "fire",
   "category": "physical"
  },
  {
   "id": 834,
-  "name_ko": "wave-crash",
+  "name_ko": "웨이브태클",
   "power": 120,
   "type": "water",
   "category": "physical"
  },
  {
   "id": 838,
-  "name_ko": "headlong-rush",
+  "name_ko": "맹돌진",
   "power": 120,
   "type": "ground",
   "category": "physical"
  },
  {
   "id": 839,
-  "name_ko": "barb-barrage",
+  "name_ko": "독침난사",
   "power": 60,
   "type": "poison",
   "category": "physical"
  },
  {
   "id": 851,
-  "name_ko": "tera-blast",
+  "name_ko": "테라버스트",
   "power": 80,
   "type": "normal",
   "category": "special"
  },
  {
   "id": 853,
-  "name_ko": "axe-kick",
+  "name_ko": "도끼차기",
   "power": 120,
   "type": "fighting",
   "category": "physical"
  },
  {
   "id": 855,
-  "name_ko": "lumina-crash",
+  "name_ko": "루미나콜리전",
   "power": 80,
   "type": "psychic",
   "category": "special"
  },
  {
   "id": 861,
-  "name_ko": "ice-spinner",
+  "name_ko": "아이스스피너",
   "power": 80,
   "type": "ice",
   "category": "physical"
  },
  {
   "id": 864,
-  "name_ko": "salt-cure",
+  "name_ko": "소금절이",
   "power": 40,
   "type": "rock",
   "category": "physical"
  },
  {
   "id": 866,
-  "name_ko": "mortal-spin",
+  "name_ko": "목숨걸기회전",
   "power": 30,
   "type": "poison",
   "category": "physical"
  },
  {
   "id": 870,
-  "name_ko": "flower-trick",
+  "name_ko": "플라워트릭",
   "power": 70,
   "type": "grass",
   "category": "physical"
  },
  {
   "id": 871,
-  "name_ko": "torch-song",
+  "name_ko": "플레어송",
   "power": 80,
   "type": "fire",
   "category": "special"
  },
  {
   "id": 872,
-  "name_ko": "aqua-step",
+  "name_ko": "아쿠아스텝",
   "power": 80,
   "type": "water",
   "category": "physical"
  },
  {
   "id": 873,
-  "name_ko": "raging-bull",
+  "name_ko": "레이징불",
   "power": 90,
   "type": "normal",
   "category": "physical"
  },
  {
   "id": 874,
-  "name_ko": "make-it-rain",
+  "name_ko": "골드러시",
   "power": 120,
   "type": "steel",
   "category": "special"
  },
  {
   "id": 884,
-  "name_ko": "pounce",
+  "name_ko": "덤벼들기",
   "power": 50,
   "type": "bug",
   "category": "physical"
  },
  {
   "id": 885,
-  "name_ko": "trailblaze",
+  "name_ko": "풀묻히기",
   "power": 50,
   "type": "grass",
   "category": "physical"
  },
  {
   "id": 886,
-  "name_ko": "chilling-water",
+  "name_ko": "찬물끼얹기",
   "power": 50,
   "type": "water",
   "category": "special"
  },
  {
   "id": 890,
-  "name_ko": "armor-cannon",
+  "name_ko": "아머캐논",
   "power": 120,
   "type": "fire",
   "category": "special"
  },
  {
   "id": 892,
-  "name_ko": "double-shock",
+  "name_ko": "전기방출",
   "power": 120,
   "type": "electric",
   "category": "physical"
  },
  {
   "id": 893,
-  "name_ko": "gigaton-hammer",
+  "name_ko": "기가톤해머",
   "power": 160,
   "type": "steel",
   "category": "physical"
  },
  {
   "id": 894,
-  "name_ko": "comeuppance",
+  "name_ko": "분함의역습",
   "power": 1,
   "type": "dark",
   "category": "physical"
  },
  {
   "id": 895,
-  "name_ko": "aqua-cutter",
+  "name_ko": "아쿠아커터",
   "power": 70,
   "type": "water",
   "category": "physical"

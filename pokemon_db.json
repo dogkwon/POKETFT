@@ -10826,7 +10826,7 @@
     "is_hidden": false
    },
    {
-    "name_ko": "sharpness",
+    "name_ko": "예리함",
     "name_en": "sharpness",
     "is_hidden": false
    },
@@ -20247,7 +20247,7 @@
     "is_hidden": false
    },
    {
-    "name_ko": "sharpness",
+    "name_ko": "예리함",
     "name_en": "sharpness",
     "is_hidden": true
    }
@@ -21009,7 +21009,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "lingering-aroma",
+    "name_ko": "감도는향기",
     "name_en": "lingering-aroma",
     "is_hidden": false
    },
@@ -21198,7 +21198,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "purifying-salt",
+    "name_ko": "깨끗한소금",
     "name_en": "purifying-salt",
     "is_hidden": false
    },
@@ -21380,7 +21380,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "wind-power",
+    "name_ko": "풍력발전",
     "name_en": "wind-power",
     "is_hidden": false
    },
@@ -21643,7 +21643,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "anger-shell",
+    "name_ko": "분노의껍질",
     "name_en": "anger-shell",
     "is_hidden": false
    },
@@ -22130,7 +22130,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "opportunist",
+    "name_ko": "편승",
     "name_en": "opportunist",
     "is_hidden": false
    },
@@ -22479,7 +22479,7 @@
     "is_hidden": false
    },
    {
-    "name_ko": "rocky-payload",
+    "name_ko": "바위나르기",
     "name_en": "rocky-payload",
     "is_hidden": true
    }
@@ -22651,7 +22651,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "earth-eater",
+    "name_ko": "흙먹기",
     "name_en": "earth-eater",
     "is_hidden": false
    },
@@ -22726,7 +22726,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "toxic-debris",
+    "name_ko": "독치장",
     "name_en": "toxic-debris",
     "is_hidden": false
    },
@@ -22979,7 +22979,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "protosynthesis",
+    "name_ko": "고대활성",
     "name_en": "protosynthesis",
     "is_hidden": false
    }
@@ -23063,7 +23063,7 @@
   ],
   "abilities": [
    {
-    "name_ko": "good-as-gold",
+    "name_ko": "황금몸",
     "name_en": "good-as-gold",
     "is_hidden": false
    }

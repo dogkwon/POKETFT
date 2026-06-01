@@ -6,19 +6,17 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-/**
- * 한쪽 패널(공격자 or 방어자)의 상태
- */
 class PanelState {
     var pokemon by mutableStateOf<Pokemon?>(null)
     var nature by mutableStateOf(NatureData.NEUTRAL)
-    var selectedAbility by mutableStateOf("")   // 선택된 특성 (영어명, CalcEngine용)
-    var selectedAbilityKo by mutableStateOf("") // 선택된 특성 (한국어명, UI 표시용)
-    val evs = mutableStateListOf(0, 0, 0, 0, 0, 0)       // HP,Atk,Def,SpA,SpD,Spe
-    val ranks = mutableStateListOf(0, 0, 0, 0, 0)          // Atk,Def,SpA,SpD,Spe
+    var selectedAbility by mutableStateOf("")
+    var selectedAbilityKo by mutableStateOf("")
+    val evs = mutableStateListOf(0, 0, 0, 0, 0, 0)
+    val ranks = mutableStateListOf(0, 0, 0, 0, 0)
     var selectedMoveId by mutableIntStateOf(-1)
-    /** 장착 도구 id (`BattleContext.ATTACKER_HELD` / `DEFENDER_HELD`) */
     var heldItemId by mutableStateOf("none")
+    var wallId by mutableStateOf("none")
+    val assignedMoveIds = mutableStateListOf<Int>()
 
     fun reset() {
         pokemon = null
@@ -26,12 +24,13 @@ class PanelState {
         selectedAbility = ""
         selectedAbilityKo = ""
         heldItemId = "none"
+        wallId = "none"
         for (i in evs.indices) evs[i] = 0
         for (i in ranks.indices) ranks[i] = 0
         selectedMoveId = -1
+        assignedMoveIds.clear()
     }
 
-    /** 포켓몬 선택 — 첫 번째 특성 기본 선택, resetBuild 시 EV/랭크/성격 초기화 */
     fun selectPokemon(p: Pokemon, resetBuild: Boolean = false) {
         pokemon = p
         if (resetBuild) {
@@ -40,11 +39,12 @@ class PanelState {
             for (i in ranks.indices) ranks[i] = 0
             selectedMoveId = -1
             heldItemId = "none"
+            wallId = "none"
+            assignedMoveIds.clear()
         }
         applyDefaultAbility(p)
     }
 
-    /** 등록된 내 포켓몬 빌드 로드 (저장된 EV/성격/특성, 랭크는 0으로) */
     fun loadFromSave(p: Pokemon, save: MyPokemonSave) {
         pokemon = p
         nature = save.toNature()
@@ -52,6 +52,9 @@ class PanelState {
             if (i < evs.size) evs[i] = save.evs[i]
         }
         for (i in ranks.indices) ranks[i] = 0
+        wallId = "none"
+        assignedMoveIds.clear()
+        assignedMoveIds.addAll(save.moveIds)
         selectedMoveId = save.moveIds.firstOrNull() ?: -1
         if (save.abilityEn.isNotEmpty()) {
             selectedAbility = save.abilityEn
@@ -86,6 +89,10 @@ class PanelState {
         heldItemId = BattleContext.nextId(options, heldItemId)
     }
 
+    fun cycleWall() {
+        wallId = BattleContext.nextId(BattleContext.WALLS, wallId)
+    }
+
     fun adjustEv(statIdx: Int, delta: Int) {
         evs[statIdx] = (evs[statIdx] + delta).coerceIn(0, 252)
     }
@@ -94,7 +101,6 @@ class PanelState {
         ranks[statIdx] = (ranks[statIdx] + delta).coerceIn(-6, 6)
     }
 
-    /** 계산된 실수치 반환 [HP, Atk, Def, SpA, SpD, Spe] */
     fun calcActualStats(): IntArray {
         val p = pokemon ?: return IntArray(6)
         val result = IntArray(6)
@@ -106,17 +112,14 @@ class PanelState {
     }
 }
 
-/**
- * 전체 오버레이 상태
- */
 class OverlayUIState {
     val attacker = PanelState()
     val defender = PanelState()
     var isOverlayVisible by mutableStateOf(true)
 
-    /** 전역 날씨·지형 (VGC 규약 근사) */
     var weatherId by mutableStateOf("none")
     var terrainId by mutableStateOf("none")
+    var isCritical by mutableStateOf(false)
 
     var showEvPopup by mutableStateOf(false)
     var evPopupTarget by mutableStateOf("attacker")
@@ -124,11 +127,15 @@ class OverlayUIState {
     var naturePopupTarget by mutableStateOf("attacker")
     var showSearchPopup by mutableStateOf(false)
     var searchPopupTarget by mutableStateOf("attacker")
+    var showRankPopup by mutableStateOf(false)
+    var rankPopupTarget by mutableStateOf("attacker")
+    var showMoveSelectPopup by mutableStateOf(false)
+    var moveSelectTarget by mutableStateOf("defender")
+    var moveSelectSlotIdx by mutableIntStateOf(0)
 
     fun getPanel(target: String): PanelState =
         if (target == "attacker") attacker else defender
 
-    /** 공격자 ↔ 방어자 스왑 */
     fun swap() {
         val tempPoke = attacker.pokemon
         attacker.pokemon = defender.pokemon
@@ -138,7 +145,6 @@ class OverlayUIState {
         attacker.nature = defender.nature
         defender.nature = tempNature
 
-        // 특성 교환
         val tempAb = attacker.selectedAbility
         val tempAbKo = attacker.selectedAbilityKo
         attacker.selectedAbility = defender.selectedAbility
@@ -165,11 +171,22 @@ class OverlayUIState {
         val tempItem = attacker.heldItemId
         attacker.heldItemId = defender.heldItemId
         defender.heldItemId = tempItem
+
+        val tempWall = attacker.wallId
+        attacker.wallId = defender.wallId
+        defender.wallId = tempWall
+
+        val tempMoves = attacker.assignedMoveIds.toList()
+        attacker.assignedMoveIds.clear()
+        attacker.assignedMoveIds.addAll(defender.assignedMoveIds)
+        defender.assignedMoveIds.clear()
+        defender.assignedMoveIds.addAll(tempMoves)
     }
 
     fun resetAll() {
         weatherId = "none"
         terrainId = "none"
+        isCritical = false
         attacker.reset()
         defender.reset()
     }
