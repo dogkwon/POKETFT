@@ -24,7 +24,8 @@ data class Move(
     val name_ko: String,
     val power: Int,
     val type: String,
-    val category: String // "physical" or "special"
+    val category: String, // "physical" or "special"
+    val is_contact: Boolean = false
 )
 
 /** 성격 데이터 — 5×5 격자 (상승 스탯 × 하락 스탯) */

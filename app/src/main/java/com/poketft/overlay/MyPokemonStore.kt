@@ -14,12 +14,13 @@ data class MyPokemonSave(
     val natureDown: Int,
     val evs: List<Int>,
     val moveIds: List<Int>,
-    val abilityEn: String = "",   // 선택된 특성 (영어명)
-    val abilityKo: String = ""    // 선택된 특성 (한국어명)
+    val abilityEn: String = "",
+    val abilityKo: String = "",
+    val heldItemId: String = "none",       // 장착 도구
+    val typeBoostHeldId: String = "none"  // 타입 부스트 도구
 ) {
-    /** NatureData 복원 */
     fun toNature(): NatureData {
-        val row = natureUp - 1  // 1~5 → 0~4
+        val row = natureUp - 1
         val col = natureDown - 1
         return if (row in 0..4 && col in 0..4) {
             NatureData.GRID[row][col]

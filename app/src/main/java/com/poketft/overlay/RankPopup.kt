@@ -17,112 +17,79 @@ import androidx.compose.ui.unit.sp
 import com.poketft.overlay.ui.theme.*
 
 /**
- * 랭크(능력치 변화) 조작 팝업 — ±1 단계 조절
- * 스탯: Atk, Def, SpA, SpD, Spe (HP 제외)
+ * 랭크 조절 팝업 — H,A,B,C,D,S (-6 ~ +6)
  */
 @Composable
 fun RankPopup(
     panel: PanelState,
     onDismiss: () -> Unit
 ) {
-    val statLabels = listOf("공격", "방어", "특공", "특방", "스피드")
+    val short = listOf("H", "A", "B", "C", "D", "S")
+    val full = listOf("HP", "공격", "방어", "특공", "특방", "스피드")
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xAA000000))
+            .background(Color(0xCC000000))
             .clickable { onDismiss() },
         contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(10.dp))
                 .background(PokeSurface)
-                .clickable { /* 이벤트 소비 */ }
-                .padding(16.dp)
-                .widthIn(max = 340.dp),
+                .clickable { }
+                .padding(12.dp)
+                .widthIn(max = 320.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("랭크 변화", color = PokeTextPri, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(12.dp))
+            Text("📊 Rank 조절", color = PokeTextPri, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(panel.pokemon?.name_ko ?: "", color = PokeTextSec, fontSize = 9.sp)
+            Spacer(modifier = Modifier.height(8.dp))
 
-            statLabels.forEachIndexed { idx, label ->
+            short.forEachIndexed { idx, label ->
                 val rank = panel.ranks[idx]
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(label, color = PokeTextSec, fontSize = 11.sp,
-                        modifier = Modifier.width(50.dp))
-
-                    // -1 버튼
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(label, color = PokeAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.width(14.dp))
+                    Text(full[idx], color = PokeTextSec, fontSize = 9.sp, modifier = Modifier.width(40.dp))
                     Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(PokeRed.copy(alpha = 0.7f))
+                        modifier = Modifier.size(26.dp).clip(RoundedCornerShape(3.dp))
+                            .background(PokeRed.copy(0.7f))
                             .clickable { panel.adjustRank(idx, -1) },
                         contentAlignment = Alignment.Center
-                    ) { Text("-1", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // 현재 랭크
+                    ) { Text("-", color = Color.White, fontSize = 10.sp) }
                     Text(
-                        text = if (rank >= 0) "+$rank" else "$rank",
-                        color = when {
-                            rank > 0 -> PokeBlue
-                            rank < 0 -> PokeRed
-                            else -> PokeTextSec
-                        },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.width(40.dp)
+                        if (rank >= 0) "+$rank" else "$rank",
+                        color = when { rank > 0 -> PokeBlue; rank < 0 -> PokeRed; else -> PokeTextSec },
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.width(32.dp), textAlign = TextAlign.Center
                     )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // +1 버튼
                     Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(PokeBlue.copy(alpha = 0.7f))
+                        modifier = Modifier.size(26.dp).clip(RoundedCornerShape(3.dp))
+                            .background(PokeBlue.copy(0.7f))
                             .clickable { panel.adjustRank(idx, 1) },
                         contentAlignment = Alignment.Center
-                    ) { Text("+1", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // 배율 표시
-                    val mul = CalcEngine.rankMultiplier(rank)
-                    Text("×${"%.2f".format(mul)}", color = PokeGreen, fontSize = 10.sp)
+                    ) { Text("+", color = Color.White, fontSize = 10.sp) }
+                    Text("×${"%.2f".format(CalcEngine.rankMultiplier(rank))}",
+                        color = PokeGreen, fontSize = 8.sp)
                 }
-                if (idx < statLabels.lastIndex) Spacer(modifier = Modifier.height(4.dp))
+                if (idx < short.lastIndex) Spacer(modifier = Modifier.height(3.dp))
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-
-            // 초기화 + 닫기 버튼
             Row {
                 Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(PokeBorder)
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(PokeBorder)
                         .clickable { for (i in panel.ranks.indices) panel.ranks[i] = 0 }
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                ) { Text("초기화", color = PokeTextSec, fontSize = 11.sp) }
-
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                ) { Text("초기화", color = PokeTextSec, fontSize = 10.sp) }
                 Spacer(modifier = Modifier.width(8.dp))
-
                 Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(PokeAccent)
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(PokeAccent)
                         .clickable { onDismiss() }
-                        .padding(horizontal = 24.dp, vertical = 6.dp)
-                ) { Text("닫기", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                        .padding(horizontal = 20.dp, vertical = 5.dp)
+                ) { Text("닫기", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
             }
         }
     }

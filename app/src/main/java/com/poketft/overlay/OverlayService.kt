@@ -64,8 +64,7 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
-        // 데이터 로드 (이미 Activity에서 로드했지만, 서비스 재시작 대비)
-        Repo.load(this)
+        Repo.ensureLoaded(this)
         MyPokemonStore.load(this)
 
         lifecycleOwner.lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
@@ -82,14 +81,14 @@ class OverlayService : Service() {
     private fun setOverlayFocusable(focusable: Boolean) {
         val view = overlayView ?: return
         val params = overlayParams ?: return
-        params.flags = if (focusable) {
-            // 키보드 입력 가능 — FLAG_NOT_FOCUSABLE 제거
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+        if (focusable) {
+            params.flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         } else {
-            // 기본 — 터치가 뒤로 전달되지 않지만 포커스도 안 가져감
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         }
         try {
             windowManager.updateViewLayout(view, params)
@@ -99,6 +98,7 @@ class OverlayService : Service() {
     /** 전체화면 오버레이 표시 */
     private fun showOverlay() {
         removeBubble()
+        Repo.ensureLoaded(this)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,

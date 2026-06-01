@@ -35,7 +35,8 @@ object CalcEngine {
         rankStage: Int,
         ability: String,
         weather: String,
-        heldItemId: String
+        heldItemId: String,
+        statusConditionId: String = "none"
     ): Int {
         var spe = floor(baseSpe * rankMultiplier(rankStage)).toInt()
         when (ability) {
@@ -48,6 +49,9 @@ object CalcEngine {
         }
         if (heldItemId == "choice-scarf") spe = floor(spe * 1.5).toInt()
         if (heldItemId == "iron-ball") spe = floor(spe * 0.5).toInt()
+        if (statusConditionId == "par" && ability != "quick-feet") {
+            spe = floor(spe * 0.5).toInt()
+        }
         return spe
     }
 
@@ -90,7 +94,8 @@ object CalcEngine {
         isPhysical: Boolean,
         heldItemId: String,
         atkAbility: String,
-        weather: String
+        weather: String,
+        statusConditionId: String = "none"
     ): Int {
         var v = atkWithRank.toDouble()
         when (heldItemId) {
@@ -100,6 +105,7 @@ object CalcEngine {
             "wise-glasses" -> if (!isPhysical) v *= 1.1
         }
         if (!isPhysical && atkAbility == "solar-power" && weather == "sun") v *= 1.5
+        if (isPhysical && atkAbility == "guts" && statusConditionId != "none") v *= 1.5
         return floor(v).toInt().coerceAtLeast(1)
     }
 
@@ -125,16 +131,14 @@ object CalcEngine {
     // ── 데미지 계산 (특성 효과 포함) ──────────────────────────
 
     /**
-     * @param power       기술 위력
-     * @param attack      공격 실수치 (랭크 보정 후)
-     * @param defense     방어 실수치 (랭크 보정 후)
-     * @param stab        자속 보정
-     * @param typeEff     타입 상성 배율
-     * @param atkAbility  공격자 특성 (영어명)
-     * @param defAbility  방어자 특성 (영어명)
-     * @param moveType    기술 타입 (특성 판정용)
-     * @param criticalMul 급소 배율 (1.0 = 일반, 1.5 = 급소)
-     * @param wallMul     벽 배율 (1.0 = 없음, 0.5 = 리플렉터/빛의장막/오로라베일)
+     * @param power      기술 위력
+     * @param attack     공격 실수치 (랭크 보정 후)
+     * @param defense    방어 실수치 (랭크 보정 후)
+     * @param stab       자속 보정
+     * @param typeEff    타입 상성 배율
+     * @param atkAbility 공격자 특성 (영어명)
+     * @param defAbility 방어자 특성 (영어명)
+     * @param moveType   기술 타입 (특성 판정용)
      */
     fun calcDamage(
         power: Int, attack: Int, defense: Int,
@@ -142,65 +146,67 @@ object CalcEngine {
         atkAbility: String = "", defAbility: String = "",
         moveType: String = "",
         isPhysical: Boolean = true,
+        isContact: Boolean = false,
         environmentMul: Double = 1.0,
         expertBeltMul: Double = 1.0,
         lifeOrbMul: Double = 1.0,
+        typeBoostMul: Double = 1.0,
         criticalMul: Double = 1.0,
-        wallMul: Double = 1.0
+        wallMul: Double = 1.0,
+        burnMul: Double = 1.0
     ): Pair<Int, Int> {
         if (power <= 0 || defense <= 0) return 0 to 0
 
-        // 기본 데미지
-        val base = (22.0 * power * attack.toDouble() / defense) / 50.0 + 2.0
+        // 기본 데미지 (포켓몬 공식 계산식의 정수 버림 처리)
+        var base = floor(22.0 * power * attack / defense).toInt()
+        base = floor(base / 50.0).toInt() + 2
 
-        // STAB 배율 — 적응력(Adaptability): 2.0x, 천의무봉(Protean/Libero): 항상 STAB
+        // 1. 날씨 / 필드 등 환경 보정
+        var d = floor(base * environmentMul).toInt()
+
+        // 2. 급소 보정
+        d = floor(d * criticalMul).toInt()
+
+        // 3. 랜덤 타수 분기 (0.85 ~ 1.00)
+        var minTotal = floor(d * 0.85).toInt()
+        var maxTotal = d
+
+        // 4. 자속 보정(STAB)
         val stabMul = when {
             atkAbility in listOf("adaptability") && stab -> 2.0
             atkAbility in listOf("protean", "libero") -> 1.5
             stab -> 1.5
             else -> 1.0
         }
+        minTotal = floor(minTotal * stabMul).toInt()
+        maxTotal = floor(maxTotal * stabMul).toInt()
 
-        // 타입 상성 보정 특성
+        // 5. 타입 상성
         var effTypeEff = typeEff
-        // 하드록/필터(Solid Rock/Filter): 효과 좋은 공격 0.75배
-        if (defAbility in listOf("solid-rock", "filter") && typeEff > 1.0) {
-            effTypeEff *= 0.75
-        }
-        // 틴트드렌즈(Tinted Lens): 효과 별로 2배
-        if (atkAbility == "tinted-lens" && typeEff < 1.0 && typeEff > 0.0) {
-            effTypeEff *= 2.0
-        }
+        if (defAbility in listOf("solid-rock", "filter") && typeEff > 1.0) effTypeEff *= 0.75
+        if (atkAbility == "tinted-lens" && typeEff < 1.0 && typeEff > 0.0) effTypeEff *= 2.0
 
-        // 공격력 보정 특성
+        minTotal = floor(minTotal * effTypeEff).toInt()
+        maxTotal = floor(maxTotal * effTypeEff).toInt()
+
+        // 6. 특성 및 도구 등 기타 보정
         var atkMul = 1.0
-        // 테크니션(Technician): 위력 60 이하 1.5배
         if (atkAbility == "technician" && power <= 60) atkMul *= 1.5
-        // 근성(Guts): 공격 1.5배 (상태이상 가정)
-        // → UI에서 토글로 별도 처리 가능
-        // 철주먹(Iron Fist): 펀치 기술 1.2배
         if (atkAbility == "iron-fist") atkMul *= 1.2
-        // 이판사판(Reckless): 반동 기술 1.2배
         if (atkAbility == "reckless") atkMul *= 1.2
-        // 메가런처(Mega Launcher): 파동 기술 1.5배
         if (atkAbility == "mega-launcher") atkMul *= 1.5
+        if (atkAbility == "tough-claws" && isContact) atkMul *= 1.3
 
-        // 방어 보정 특성
         var defMul = 1.0
-        // 두꺼운지방(Thick Fat): 불꽃/얼음 피해 0.5배
-        if (defAbility == "thick-fat" && moveType in listOf("fire", "ice")) {
-            defMul *= 0.5
-        }
-        // 모피코트(Fur Coat): 물리 방어 2배 → 데미지 0.5배
+        if (defAbility == "thick-fat" && moveType in listOf("fire", "ice")) defMul *= 0.5
         if (defAbility == "fur-coat" && isPhysical) defMul *= 0.5
-        // 멀티스케일(Multiscale): 풀체력 0.5배 (오버레이는 풀HP 가정)
-        if (defAbility == "multiscale" && criticalMul <= 1.0) defMul *= 0.5
+        if (defAbility == "multiscale") defMul *= 0.5
 
-        val total = base * stabMul * effTypeEff * atkMul * defMul *
-            environmentMul * expertBeltMul * lifeOrbMul * criticalMul * wallMul
-        val minDmg = floor(total * 0.85).toInt().coerceAtLeast(1)
-        val maxDmg = floor(total).toInt().coerceAtLeast(1)
-        return minDmg to maxDmg
+        val otherMul = atkMul * defMul * expertBeltMul * lifeOrbMul * typeBoostMul * wallMul * burnMul
+        minTotal = floor(minTotal * otherMul).toInt().coerceAtLeast(1)
+        maxTotal = floor(maxTotal * otherMul).toInt().coerceAtLeast(1)
+
+        return minTotal to maxTotal
     }
 
     // ── 특성에 의한 타입 면역 체크 ──────────────────────────
