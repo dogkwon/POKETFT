@@ -48,7 +48,16 @@ object MyPokemonStore {
                 val type = object : TypeToken<List<MyPokemonSave>>() {}.type
                 val saved: List<MyPokemonSave> = gson.fromJson(json, type)
                 list.clear()
-                list.addAll(saved)
+                // Gson은 Kotlin default value를 무시하고 누락 필드를 null로 채움
+                // → 새로 추가된 String 필드가 null일 수 있으므로 null-safe 변환
+                list.addAll(saved.map { s ->
+                    s.copy(
+                        abilityEn        = s.abilityEn        ?: "",
+                        abilityKo        = s.abilityKo        ?: "",
+                        heldItemId       = s.heldItemId       ?: "none",
+                        typeBoostHeldId  = s.typeBoostHeldId  ?: "none"
+                    )
+                })
             } catch (_: Exception) {}
         }
     }

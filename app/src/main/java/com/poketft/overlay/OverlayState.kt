@@ -65,7 +65,7 @@ class PanelState {
     fun selectPokemon(p: Pokemon, resetBuild: Boolean = false) =
         bindPokemonFromSearch(p, resetBuild)
 
-    /** 등록된 내 포켓몬 빌드 로드 (저장된 EV/성격/특성, 랭크는 0으로) */
+    /** 등록된 내 포켓몬 빌드 로드 — EV/성격/특성/기술/도구 전체 복원, 랭크는 0으로 */
     fun loadFromSave(p: Pokemon, save: MyPokemonSave) {
         pokemon = p
         nature = save.toNature()
@@ -74,6 +74,7 @@ class PanelState {
         }
         for (i in ranks.indices) ranks[i] = 0
 
+        // 기술 복원
         if (save.moveIds.isNotEmpty()) {
             assignedMoveIds.clear()
             assignedMoveIds.addAll(save.moveIds)
@@ -81,12 +82,18 @@ class PanelState {
         } else {
             reloadLearnableMoves(p)
         }
+
+        // 특성 복원
         if (save.abilityEn.isNotEmpty()) {
             selectedAbility = save.abilityEn
             selectedAbilityKo = save.abilityKo
         } else {
             applyDefaultAbility(p)
         }
+
+        // 도구 복원 (null-safe: 구버전 저장 데이터 호환)
+        heldItemId      = (save.heldItemId      ?: "none").ifBlank { "none" }
+        typeBoostHeldId = (save.typeBoostHeldId ?: "none").ifBlank { "none" }
     }
 
     fun cycleAbility() {
@@ -115,7 +122,7 @@ class PanelState {
     }
 
     fun adjustEv(statIdx: Int, delta: Int) {
-        evs[statIdx] = (evs[statIdx] + delta).coerceIn(0, 252)
+        evs[statIdx] = (evs[statIdx] + delta).coerceIn(0, 32)
     }
 
     fun adjustRank(statIdx: Int, delta: Int) {

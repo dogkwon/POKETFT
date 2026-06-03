@@ -13,12 +13,14 @@ object CalcEngine {
 
     // ── 실수치 계산 ──────────────────────────────────────
 
+    // ev: 0~32 스케일 (UI 입력값). 실제 공식 EV = ev * 8
+    // floor(ev*8 / 4) = ev * 2
     fun calcHP(base: Int, ev: Int): Int {
-        return (base * 2 + IV + ev / 4) * LV / 100 + LV + 10
+        return (base * 2 + IV + ev * 2) * LV / 100 + LV + 10
     }
 
     fun calcStat(base: Int, ev: Int, natureMul: Double): Int {
-        val raw = (base * 2 + IV + ev / 4) * LV / 100 + 5
+        val raw = (base * 2 + IV + ev * 2) * LV / 100 + 5
         return floor(raw * natureMul).toInt()
     }
 

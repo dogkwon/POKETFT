@@ -197,7 +197,9 @@ private fun PokemonSidePanel(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 포켓몬 자동완성 검색창 (기존 유지)
+// 포켓몬 자동완성 검색창
+//   • 포커스 & 빈 쿼리 → 등록한 포켓몬 바로가기 표시
+//   • 타이핑 → 일반 이름 검색 결과 표시
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PokemonAutocompleteField(
@@ -213,34 +215,38 @@ private fun PokemonAutocompleteField(
         panel.pokemon?.name_ko?.let { query = it }
     }
 
-    val suggestions = remember(query, dbCount, isMine) {
+    // 일반 검색 결과 (타이핑 시)
+    val searchResults = remember(query, dbCount) {
         if (query.isBlank() || dbCount == 0) emptyList()
-        else {
-            val fromDb = Repo.filterByNameKo(query, limit = 12)
-            if (!isMine) fromDb
-            else {
-                val saved = MyPokemonStore.list
-                    .mapNotNull { MyPokemonStore.getBasePokemon(it) }
-                    .filter {
-                        it.name_ko.contains(query, ignoreCase = true) ||
-                            it.dex_no.toString().contains(query)
-                    }
-                (saved + fromDb).distinctBy { it.id }.take(12)
-            }
+        else Repo.filterByNameKo(query, limit = 12)
+    }
+
+    // 등록한 포켓몬 목록 (포커스 & 빈 쿼리 시 표시)
+    val savedPokemons = remember(MyPokemonStore.list.size) {
+        MyPokemonStore.list.mapNotNull { save ->
+            val base = MyPokemonStore.getBasePokemon(save) ?: return@mapNotNull null
+            Pair(base, save)
         }
     }
+
+    val showSaved   = showSuggestions && query.isBlank() && savedPokemons.isNotEmpty()
+    val showSearch  = showSuggestions && query.isNotBlank() && searchResults.isNotEmpty()
 
     Column(modifier = Modifier.fillMaxWidth()) {
         if (dbCount == 0) {
             Text("DB 없음 — assets 재빌드 필요", color = PokeRed, fontSize = 8.sp)
         }
 
-        // 검색 입력창
+        // ── 검색 입력창 ──────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(36.dp)
-                .border(1.dp, PokeBorder, RoundedCornerShape(4.dp))
+                .border(
+                    1.dp,
+                    if (showSuggestions) PokeAccent else PokeBorder,
+                    RoundedCornerShape(4.dp)
+                )
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -248,13 +254,13 @@ private fun PokemonAutocompleteField(
                 value = query,
                 onValueChange = { text ->
                     query = text
-                    showSuggestions = text.isNotBlank()
+                    showSuggestions = true
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { focus ->
                         onRequestFocus(focus.isFocused)
-                        if (focus.isFocused && query.isNotBlank()) showSuggestions = true
+                        if (focus.isFocused) showSuggestions = true
                     },
                 textStyle = LocalTextStyle.current.copy(fontSize = 10.sp, color = PokeTextPri),
                 singleLine = true,
@@ -274,8 +280,87 @@ private fun PokemonAutocompleteField(
             )
         }
 
-        // 검색 결과 목록
-        if (showSuggestions && suggestions.isNotEmpty()) {
+        // ── 등록한 포켓몬 바로가기 (빈 쿼리 + 포커스) ──
+        if (showSaved) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(2f)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF1A1A2E))      // 구분되는 배경색
+                    .border(1.dp, PokeAccent.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                    .heightIn(max = 150.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // 섹션 헤더
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(PokeAccent.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "⭐ 등록한 포켓몬",
+                        color = PokeAccent, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "${savedPokemons.size}마리",
+                        color = PokeTextSec, fontSize = 7.sp
+                    )
+                }
+
+                savedPokemons.forEach { (pokemon, save) ->
+                    val nature = save.toNature()
+                    val evSummary = save.evs
+                        .zip(listOf("H","A","B","C","D","S"))
+                        .filter { it.first > 0 }
+                        .joinToString(" ") { "${it.second}${it.first}" }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                panel.loadFromSave(pokemon, save)
+                                query = pokemon.name_ko
+                                showSuggestions = false
+                                onRequestFocus(false)
+                            }
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    pokemon.name_ko,
+                                    color = PokeTextPri, fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                pokemon.types.forEach { TypeBadge(it) }
+                            }
+                            // EV·성격 요약
+                            Text(
+                                "${nature.nameKo}  $evSummary",
+                                color = PokeTextSec, fontSize = 7.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        // 즉시로드 표시
+                        Text(
+                            "불러오기",
+                            color = PokeAccent, fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    HorizontalDivider(color = PokeBorder.copy(alpha = 0.2f), thickness = 0.5.dp)
+                }
+            }
+        }
+
+        // ── 일반 검색 결과 (타이핑 시) ──────────────
+        if (showSearch) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -286,15 +371,15 @@ private fun PokemonAutocompleteField(
                     .heightIn(max = 120.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                suggestions.forEach { pokemon ->
+                searchResults.forEach { pokemon ->
+                    val hasSave = MyPokemonStore.list.any { it.pokemonId == pokemon.id }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                if (isMine) {
-                                    val save = MyPokemonStore.list.find { it.pokemonId == pokemon.id }
-                                    if (save != null) panel.loadFromSave(pokemon, save)
-                                    else panel.bindPokemonFromSearch(pokemon, resetBuild = false)
+                                val save = MyPokemonStore.list.find { it.pokemonId == pokemon.id }
+                                if (isMine && save != null) {
+                                    panel.loadFromSave(pokemon, save)
                                 } else {
                                     panel.bindPokemonFromSearch(pokemon, resetBuild = true)
                                 }
@@ -310,6 +395,11 @@ private fun PokemonAutocompleteField(
                             color = PokeTextPri, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
+                        // 등록된 포켓몬이면 별 표시
+                        if (hasSave) {
+                            Text("⭐", fontSize = 8.sp)
+                            Spacer(Modifier.width(2.dp))
+                        }
                         pokemon.types.forEach { TypeBadge(it) }
                     }
                     HorizontalDivider(color = PokeBorder.copy(alpha = 0.25f), thickness = 0.5.dp)
@@ -318,6 +408,7 @@ private fun PokemonAutocompleteField(
         }
     }
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 특성 검색창 — BasicTextField 기반, ExposedDropdown 없이 독립 팝업

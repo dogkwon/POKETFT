@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.poketft.overlay.ui.theme.*
@@ -230,10 +231,16 @@ class MainActivity : ComponentActivity() {
                     text = "${nature.nameKo} | $evSummary",
                     color = PokeTextSec, fontSize = 9.sp
                 )
-                // 기술
+                // 기술 + 도구
                 val moveNames = save.moveIds.mapNotNull { Repo.movesById[it]?.name_ko }
+                val heldLabel = BattleContext.labelKo(BattleContext.ATTACKER_HELD, save.heldItemId)
+                    .takeIf { save.heldItemId != "none" }
+                val displayLine = buildString {
+                    append(moveNames.joinToString(" / "))
+                    if (heldLabel != null) append("  🎒$heldLabel")
+                }
                 Text(
-                    text = moveNames.joinToString(" / "),
+                    text = displayLine,
                     color = PokeTextSec, fontSize = 9.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
@@ -271,6 +278,7 @@ class MainActivity : ComponentActivity() {
         }
         var selAbilityEn by remember { mutableStateOf(editSave?.abilityEn ?: "") }
         var selAbilityKo by remember { mutableStateOf(editSave?.abilityKo ?: "") }
+        var selHeldItemId by remember { mutableStateOf(editSave?.heldItemId ?: "none") }
         val evs = remember {
             mutableStateListOf(*(editSave?.evs?.toTypedArray() ?: arrayOf(0,0,0,0,0,0)))
         }
@@ -463,43 +471,53 @@ class MainActivity : ComponentActivity() {
                 // 노력치 설정
                 val statLabels = listOf("HP", "공격", "방어", "특공", "특방", "스피드")
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    statLabels.forEachIndexed { idx, label ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(label, color = PokeTextSec, fontSize = 10.sp,
-                                modifier = Modifier.width(44.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(PokeRed.copy(0.7f))
-                                    .clickable {
-                                        evs[idx] = (evs[idx] - 32).coerceAtLeast(0)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) { Text("-32", color = Color.White, fontSize = 8.sp) }
-
-                            Text("${evs[idx]}", color = PokeTextPri, fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                                modifier = Modifier.width(36.dp))
-
-                            Box(
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(PokeBlue.copy(0.7f))
-                                    .clickable {
-                                        evs[idx] = (evs[idx] + 32).coerceAtMost(252)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) { Text("+32", color = Color.White, fontSize = 8.sp) }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
+                    // 노력치 슬라이더
+                    val evTotal = evs.sum()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                    ) {
+                        Text("노력치 (EV)", color = PokeAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f))
+                        Text("합계 $evTotal / 66",
+                            color = if (evTotal > 66) Color(0xFFFF6B6B) else PokeTextSec,
+                            fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
-
-                    val total = evs.sum()
-                    Text("총합: $total / 510",
-                        color = if (total > 510) PokeRed else PokeTextSec,
-                        fontSize = 10.sp)
+                    statLabels.forEachIndexed { idx, label ->
+                        val otherEvs = evs.sumOf { it } - evs[idx]
+                        val maxEv = minOf(32, 66 - otherEvs).coerceAtLeast(0)
+                        val p2 = selectedPokemon
+                        val actualStat = p2?.let {
+                            if (idx == 0) CalcEngine.calcHP(it.stats[0], evs[idx])
+                            else CalcEngine.calcStat(it.stats[idx], evs[idx], nature.multiplier(idx))
+                        }
+                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                Text(label, color = PokeTextSec, fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold, modifier = Modifier.width(44.dp))
+                                Text("${evs[idx]}", color = PokeAccent, fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold, modifier = Modifier.width(28.dp),
+                                    textAlign = TextAlign.Center)
+                                androidx.compose.material3.Slider(
+                                    value = evs[idx].toFloat(),
+                                    onValueChange = { v -> evs[idx] = v.toInt().coerceIn(0, maxEv) },
+                                    valueRange = 0f..32f,
+                                    steps = 31,
+                                    modifier = Modifier.weight(1f).height(28.dp),
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        thumbColor = PokeAccent,
+                                        activeTrackColor = PokeAccent,
+                                        inactiveTrackColor = PokeBorder
+                                    )
+                                )
+                                Text(
+                                    if (actualStat != null) "$actualStat" else "-",
+                                    color = PokeGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(34.dp), textAlign = TextAlign.End
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -557,6 +575,37 @@ class MainActivity : ComponentActivity() {
                     } else {
                         Text("포켓몬을 먼저 선택", color = PokeTextSec, fontSize = 9.sp)
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 도구 선택
+                    Text("도구:", color = PokeTextSec, fontSize = 10.sp)
+                    val heldOptions = BattleContext.ATTACKER_HELD
+                    Column {
+                        heldOptions.forEach { option ->
+                            val isChosen = option.id == selHeldItemId
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 1.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (isChosen) PokeAccent.copy(0.25f)
+                                        else Color.Transparent
+                                    )
+                                    .clickable { selHeldItemId = option.id }
+                                    .padding(horizontal = 4.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    option.labelKo,
+                                    color = if (isChosen) PokeTextPri else PokeTextSec,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isChosen) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -593,7 +642,8 @@ class MainActivity : ComponentActivity() {
                                         evs = evs.toList(),
                                         moveIds = selectedMoves.toList(),
                                         abilityEn = selAbilityEn,
-                                        abilityKo = selAbilityKo
+                                        abilityKo = selAbilityKo,
+                                        heldItemId = selHeldItemId
                                     ))
                                 }
                             }
