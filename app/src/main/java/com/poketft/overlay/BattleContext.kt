@@ -36,17 +36,38 @@ object BattleContext {
         Option("par", "마비")
     )
 
-    /** 공격 측 도구 (위력·공격 스탯 계열) */
+    /** 공격 측 도구 (위력·공격 스탯 계열 + 타입 강화) */
     val ATTACKER_HELD = listOf(
         Option("none", "도구 없음"),
         Option("life-orb", "생명구슬"),
-        Option("choice-band", "구애안경"),
-        Option("choice-specs", "구애스펙터스"),
+        Option("choice-band", "구애머리띠"),
+        Option("choice-specs", "구애안경"),
         Option("choice-scarf", "구애스카프"),
-        Option("expert-belt", "고집스카프"),
-        Option("muscle-band", "힘의띠"),
-        Option("wise-glasses", "지혜안경"),
-        Option("iron-ball", "아이언볼")
+        Option("expert-belt", "달인의띠"),
+        Option("muscle-band", "힘의머리띠"),
+        Option("wise-glasses", "박식안경"),
+        Option("iron-ball", "검은철구"),
+        Option("assault-vest", "돌격조끼"),
+        // 타입 강화 도구
+        Option("silk-scarf", "실크스카프"),
+        Option("miracle-seed", "기적의씨"),
+        Option("charcoal", "목탄"),
+        Option("mystic-water", "신비의물방울"),
+        Option("magnet", "자석"),
+        Option("silver-powder", "은빛가루"),
+        Option("sharp-beak", "예리한부리"),
+        Option("hard-stone", "딱딱한돌"),
+        Option("poison-barb", "독바늘"),
+        Option("soft-sand", "부드러운모래"),
+        Option("never-melt-ice", "녹지않는얼음"),
+        Option("black-belt", "검은띠"),
+        Option("twisted-spoon", "휘어진스푼"),
+        Option("spell-tag", "저주의부적"),
+        Option("dragon-fang", "용의이빨"),
+        Option("black-glasses", "검은안경"),
+        Option("metal-coat", "금속코트"),
+        Option("fairy-feather", "요정의깃털"),
+        Option("light-ball", "전기구슬")
     )
 
     /** 방어 측 도구 */

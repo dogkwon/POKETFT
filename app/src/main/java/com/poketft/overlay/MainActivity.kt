@@ -332,15 +332,27 @@ class MainActivity : ComponentActivity() {
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(if (isSelected) PokeAccent.copy(0.3f) else Color.Transparent)
                                 .clickable {
+                                    val existingSave = MyPokemonStore.list.find { it.pokemonId == pokemon.id }
                                     selectedPokemon = pokemon
                                     selectedMoves.clear()
-                                    // 첫 번째 특성 자동 선택
-                                    if (pokemon.abilities.isNotEmpty()) {
-                                        selAbilityEn = pokemon.abilities[0].name_en
-                                        selAbilityKo = pokemon.abilities[0].name_ko
+                                    if (existingSave != null) {
+                                        selectedMoves.addAll(existingSave.moveIds)
+                                        nature = existingSave.toNature()
+                                        for (i in evs.indices) evs[i] = existingSave.evs.getOrElse(i) { 0 }
+                                        selAbilityEn = existingSave.abilityEn
+                                        selAbilityKo = existingSave.abilityKo
+                                        selHeldItemId = existingSave.heldItemId
                                     } else {
-                                        selAbilityEn = ""
-                                        selAbilityKo = ""
+                                        for (i in evs.indices) evs[i] = 0
+                                        nature = NatureData.NEUTRAL
+                                        selHeldItemId = "none"
+                                        if (pokemon.abilities.isNotEmpty()) {
+                                            selAbilityEn = pokemon.abilities[0].name_en
+                                            selAbilityKo = pokemon.abilities[0].name_ko
+                                        } else {
+                                            selAbilityEn = ""
+                                            selAbilityKo = ""
+                                        }
                                     }
                                 }
                                 .padding(4.dp)

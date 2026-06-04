@@ -43,10 +43,15 @@ object DamageCalculator {
         if (move == null) return DamageResult.EMPTY.copy(koSummary = "기술 선택")
 
         val isPhysical = move.category == "physical"
-        val atkStatIdx = if (isPhysical) 1 else 3
+        var atkStatIdx = if (isPhysical) 1 else 3
         val defStatIdx = if (isPhysical) 2 else 4
-        val atkRankIdx = if (isPhysical) 0 else 2
+        var atkRankIdx = if (isPhysical) 0 else 2
         val defRankIdx = if (isPhysical) 1 else 3
+
+        if (move.name_ko == "바디프레스") {
+            atkStatIdx = 2 // 방어 스탯
+            atkRankIdx = 1 // 방어 랭크
+        }
 
         val atkRankForCalc = if (state.isCritical) {
             atkPanel.ranks[atkRankIdx].coerceAtLeast(0)
@@ -95,11 +100,11 @@ object DamageCalculator {
             else -> 1.0
         }
         val typeBoostMul = BattleContext.typeBoostDamageMultiplier(
-            atkPanel.typeBoostHeldId, move.type, atkPoke.name_ko
+            atkPanel.heldItemId, move.type, atkPoke.name_ko
         )
 
-        // 화상 상태이상 데미지 반감 (물리 공격이면서 공격자 특성이 근성이 아닐 때)
-        val burnMul = if (atkPanel.statusConditionId == "brn" && isPhysical && atkAb != "guts") 0.5 else 1.0
+        // 화상 상태이상 데미지 반감 (물리 공격이면서 공격자 특성이 근성이 아니고 바디프레스가 아닐 때)
+        val burnMul = if (atkPanel.statusConditionId == "brn" && isPhysical && atkAb != "guts" && move.name_ko != "바디프레스") 0.5 else 1.0
 
         val (minDmg, maxDmg) = CalcEngine.calcDamage(
             move.power, atkVal, defVal, stab, typeEff,

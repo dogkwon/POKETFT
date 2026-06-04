@@ -163,9 +163,9 @@ private fun PokemonSidePanel(
         // ── 도구 ─────────────────────────────────────
         SimpleDropdown(
             label = "도구",
-            value = BattleContext.labelKo(BattleContext.TYPE_BOOST_HELD, panel.typeBoostHeldId),
-            options = BattleContext.TYPE_BOOST_HELD.map { it.id to it.labelKo },
-            onSelect = { panel.typeBoostHeldId = it }
+            value = BattleContext.labelKo(BattleContext.ATTACKER_HELD, panel.heldItemId),
+            options = BattleContext.ATTACKER_HELD.map { it.id to it.labelKo },
+            onSelect = { panel.heldItemId = it }
         )
 
         Spacer(Modifier.height(3.dp))
