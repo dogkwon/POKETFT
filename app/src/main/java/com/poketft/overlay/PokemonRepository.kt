@@ -94,5 +94,26 @@ object Repo {
             .sortedByDescending { it.power }
     }
 
+    /** moves_db.json 전체에서 name_ko로 검색 (포켓몬 무관) */
+    fun filterMovesByName(query: String, limit: Int = 30): List<Move> {
+        val q = query.trim()
+        if (q.isEmpty()) return movesById.values
+            .filter { it.power > 0 }
+            .sortedBy { it.name_ko }
+            .take(limit)
+        return movesById.values
+            .filter { it.power > 0 && it.name_ko.contains(q, ignoreCase = true) }
+            .sortedWith(
+                compareBy<Move> {
+                    when {
+                        it.name_ko.equals(q, ignoreCase = true) -> 0
+                        it.name_ko.startsWith(q, ignoreCase = true) -> 1
+                        else -> 2
+                    }
+                }.thenBy { it.name_ko }
+            )
+            .take(limit)
+    }
+
     fun findById(id: Int): Pokemon? = pokemons.find { it.id == id }
 }

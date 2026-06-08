@@ -43,14 +43,22 @@ object DamageCalculator {
         if (move == null) return DamageResult.EMPTY.copy(koSummary = "기술 선택")
 
         val isPhysical = move.category == "physical"
-        var atkStatIdx = if (isPhysical) 1 else 3
-        val defStatIdx = if (isPhysical) 2 else 4
-        var atkRankIdx = if (isPhysical) 0 else 2
-        val defRankIdx = if (isPhysical) 1 else 3
+        val isBodyPress = move.name_ko == "바디프레스"
+        val isPsyshockType = move.name_ko in listOf("사이코쇼크", "사이코브레이크", "신비의칼")
 
-        if (move.name_ko == "바디프레스") {
+        var atkStatIdx = if (isPhysical) 1 else 3
+        var defStatIdx = if (isPhysical) 2 else 4
+        // ranks 배열: [0=HP(사용안함), 1=공격, 2=방어, 3=특공, 4=특방, 5=스피드]
+        var atkRankIdx = if (isPhysical) 1 else 3   // 공격=1, 특공=3
+        var defRankIdx = if (isPhysical) 2 else 4   // 방어=2, 특방=4
+
+        if (isBodyPress) {
             atkStatIdx = 2 // 방어 스탯
-            atkRankIdx = 1 // 방어 랭크
+            atkRankIdx = 2 // 방어 랭크 (ranks[2])
+        }
+        if (isPsyshockType) {
+            defStatIdx = 2 // 방어 스탯
+            defRankIdx = 2 // 방어 랭크 (ranks[2])
         }
 
         val atkRankForCalc = if (state.isCritical) {
@@ -65,10 +73,12 @@ object DamageCalculator {
 
         val atkVal = CalcEngine.adjustedAttackStat(
             atkRanked, isPhysical, atkPanel.heldItemId,
-            atkPanel.selectedAbility, state.weatherId, atkPanel.statusConditionId
+            atkPanel.selectedAbility, state.weatherId, atkPanel.statusConditionId,
+            isBodyPress = isBodyPress
         )
+        val isTargetingPhysicalDefense = isPhysical || isPsyshockType
         val defVal = CalcEngine.adjustedDefenseStat(
-            defRanked, isPhysical, defPoke.types, state.weatherId, defPanel.heldItemId
+            defRanked, isTargetingPhysicalDefense, defPoke.types, state.weatherId, defPanel.heldItemId
         )
 
         val defAb = defPanel.selectedAbility
@@ -104,7 +114,7 @@ object DamageCalculator {
         )
 
         // 화상 상태이상 데미지 반감 (물리 공격이면서 공격자 특성이 근성이 아니고 바디프레스가 아닐 때)
-        val burnMul = if (atkPanel.statusConditionId == "brn" && isPhysical && atkAb != "guts" && move.name_ko != "바디프레스") 0.5 else 1.0
+        val burnMul = if (atkPanel.statusConditionId == "brn" && isPhysical && atkAb != "guts" && !isBodyPress) 0.5 else 1.0
 
         val (minDmg, maxDmg) = CalcEngine.calcDamage(
             move.power, atkVal, defVal, stab, typeEff,

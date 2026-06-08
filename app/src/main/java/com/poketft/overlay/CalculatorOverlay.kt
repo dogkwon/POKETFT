@@ -10,6 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -151,12 +153,12 @@ private fun PokemonSidePanel(
         Spacer(Modifier.height(4.dp))
 
         // ── 특성 검색 ─────────────────────────────────
-        AbilitySearchField(panel = panel)
+        AbilitySearchField(panel = panel, onRequestFocus = onRequestFocus)
 
         Spacer(Modifier.height(3.dp))
 
         // ── 기술 검색 ─────────────────────────────────
-        MoveSearchField(panel = panel)
+        MoveSearchField(panel = panel, isMine = isMine, onRequestFocus = onRequestFocus)
 
         Spacer(Modifier.height(3.dp))
 
@@ -221,16 +223,8 @@ private fun PokemonAutocompleteField(
         else Repo.filterByNameKo(query, limit = 12)
     }
 
-    // 등록한 포켓몬 목록 (포커스 & 빈 쿼리 시 표시)
-    val savedPokemons = remember(MyPokemonStore.list.size) {
-        MyPokemonStore.list.mapNotNull { save ->
-            val base = MyPokemonStore.getBasePokemon(save) ?: return@mapNotNull null
-            Pair(base, save)
-        }
-    }
-
-    val showSaved   = showSuggestions && query.isBlank() && savedPokemons.isNotEmpty()
     val showSearch  = showSuggestions && query.isNotBlank() && searchResults.isNotEmpty()
+    val focusRequester = remember { FocusRequester() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         if (dbCount == 0) {
@@ -247,6 +241,7 @@ private fun PokemonAutocompleteField(
                     if (showSuggestions) PokeAccent else PokeBorder,
                     RoundedCornerShape(4.dp)
                 )
+                .clickable { focusRequester.requestFocus() }
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -258,6 +253,7 @@ private fun PokemonAutocompleteField(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .focusRequester(focusRequester)
                     .onFocusChanged { focus ->
                         onRequestFocus(focus.isFocused)
                         if (focus.isFocused) showSuggestions = true
@@ -280,84 +276,6 @@ private fun PokemonAutocompleteField(
             )
         }
 
-        // ── 등록한 포켓몬 바로가기 (빈 쿼리 + 포커스) ──
-        if (showSaved) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(2f)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF1A1A2E))      // 구분되는 배경색
-                    .border(1.dp, PokeAccent.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-                    .heightIn(max = 150.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // 섹션 헤더
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(PokeAccent.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "⭐ 등록한 포켓몬",
-                        color = PokeAccent, fontSize = 8.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        "${savedPokemons.size}마리",
-                        color = PokeTextSec, fontSize = 7.sp
-                    )
-                }
-
-                savedPokemons.forEach { (pokemon, save) ->
-                    val nature = save.toNature()
-                    val evSummary = save.evs
-                        .zip(listOf("H","A","B","C","D","S"))
-                        .filter { it.first > 0 }
-                        .joinToString(" ") { "${it.second}${it.first}" }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                panel.loadFromSave(pokemon, save)
-                                query = pokemon.name_ko
-                                showSuggestions = false
-                                onRequestFocus(false)
-                            }
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    pokemon.name_ko,
-                                    color = PokeTextPri, fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                pokemon.types.forEach { TypeBadge(it) }
-                            }
-                            // EV·성격 요약
-                            Text(
-                                "${nature.nameKo}  $evSummary",
-                                color = PokeTextSec, fontSize = 7.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        // 즉시로드 표시
-                        Text(
-                            "불러오기",
-                            color = PokeAccent, fontSize = 7.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    HorizontalDivider(color = PokeBorder.copy(alpha = 0.2f), thickness = 0.5.dp)
-                }
-            }
-        }
 
         // ── 일반 검색 결과 (타이핑 시) ──────────────
         if (showSearch) {
@@ -414,7 +332,7 @@ private fun PokemonAutocompleteField(
 // 특성 검색창 — BasicTextField 기반, ExposedDropdown 없이 독립 팝업
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun AbilitySearchField(panel: PanelState) {
+private fun AbilitySearchField(panel: PanelState, onRequestFocus: (Boolean) -> Unit = {}) {
     val pokemonId = panel.pokemon?.id
     val abilities = remember(pokemonId) {
         panel.pokemon?.abilities ?: emptyList()
@@ -451,7 +369,10 @@ private fun AbilitySearchField(panel: PanelState) {
                 BasicTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth().padding(end = 24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 24.dp)
+                        .onFocusChanged { onRequestFocus(it.isFocused) },
                     textStyle = LocalTextStyle.current.copy(fontSize = 9.sp, color = PokeTextPri),
                     singleLine = true,
                     cursorBrush = SolidColor(PokeAccent),
@@ -483,7 +404,10 @@ private fun AbilitySearchField(panel: PanelState) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clickable(enabled = abilities.isNotEmpty()) { showList = !showList },
+                    .clickable(enabled = abilities.isNotEmpty()) {
+                        showList = !showList
+                        if (!showList) onRequestFocus(false)
+                    },
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Text(if (showList) "▲" else "▼", fontSize = 8.sp, color = PokeTextSec)
@@ -526,70 +450,213 @@ private fun AbilitySearchField(panel: PanelState) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 기술 드롭다운 — 클릭으로 목록 열기, 선택하면 닫힘
+// 기술 선택
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun MoveSearchField(panel: PanelState) {
-    val pokemonId = panel.pokemon?.id
+private fun MoveSearchField(
+    panel: PanelState,
+    isMine: Boolean,
+    onRequestFocus: (Boolean) -> Unit = {}
+) {
+    if (isMine) {
+        // ══════════════════════════════════════════════════════════
+        // 내 포켓몬: 등록 모드(저장된 4기술 드롭다운) or 학습기술 검색
+        // ══════════════════════════════════════════════════════════
+        val pokemonId = panel.pokemon?.id
+        val isRegisteredMode = panel.assignedMoveIds.isNotEmpty()
 
-    val allMoves = remember(pokemonId) {
-        panel.pokemon?.let { Repo.getLearnableMoves(it) } ?: emptyList()
-    }
+        val allMoves = remember(pokemonId, panel.assignedMoveIds.toList()) {
+            if (isRegisteredMode)
+                panel.assignedMoveIds.mapNotNull { Repo.movesById[it] }
+            else
+                panel.pokemon?.let { Repo.getLearnableMoves(it) } ?: emptyList()
+        }
 
-    val selectedName = remember(panel.selectedMoveId) {
-        if (panel.selectedMoveId > 0) Repo.movesById[panel.selectedMoveId]?.name_ko ?: "기술 선택"
-        else "기술 선택"
-    }
+        var showList by remember(pokemonId) { mutableStateOf(false) }
+        var query by remember(pokemonId) { mutableStateOf("") }
+        val focusRequester = remember(pokemonId) { FocusRequester() }
 
-    var showList by remember(pokemonId) { mutableStateOf(false) }
+        LaunchedEffect(pokemonId) { showList = false; query = "" }
 
-    Text("기술", color = PokeTextSec, fontSize = 8.sp)
+        val selectedName = if (panel.selectedMoveId > 0)
+            Repo.movesById[panel.selectedMoveId]?.name_ko ?: "" else ""
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // 선택된 기술 표시 박스 (클릭하면 목록 열림)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(32.dp)
-                .border(1.dp, if (showList) PokeAccent else PokeBorder, RoundedCornerShape(4.dp))
-                .clickable(enabled = panel.pokemon != null) { showList = !showList }
-                .padding(horizontal = 8.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Text(
-                text = if (panel.pokemon == null) "포켓몬 먼저" else selectedName,
-                fontSize = 9.sp,
-                color = if (panel.pokemon == null) PokeTextSec else PokeTextPri,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(end = 20.dp)
-            )
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
-                Text(if (showList) "▲" else "▼", fontSize = 8.sp, color = PokeTextSec)
+        val displayMoves = if (isRegisteredMode || query.isBlank()) allMoves
+            else allMoves.filter { it.name_ko.contains(query, ignoreCase = true) }
+
+        Text("기술", color = PokeTextSec, fontSize = 8.sp)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // 등록 모드: 드롭다운
+            if (isRegisteredMode) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth().height(32.dp)
+                        .border(1.dp, if (showList) PokeAccent else PokeBorder, RoundedCornerShape(4.dp))
+                        .clickable(enabled = panel.pokemon != null) { showList = !showList }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (panel.pokemon == null) "포켓몬 먼저"
+                               else if (selectedName.isNotEmpty()) selectedName else "기술 선택",
+                        fontSize = 9.sp,
+                        color = if (selectedName.isNotEmpty() && panel.pokemon != null) PokeTextPri else PokeTextSec,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(if (showList) "▲" else "▼", fontSize = 8.sp, color = PokeTextSec)
+                }
+            }
+            // 일반 검색 모드: 학습 기술 검색창
+            else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth().height(32.dp)
+                        .border(1.dp, if (showList) PokeAccent else PokeBorder, RoundedCornerShape(4.dp))
+                        .clickable(enabled = panel.pokemon != null) {
+                            onRequestFocus(true); showList = true; focusRequester.requestFocus()
+                        }
+                        .padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { q -> query = q; showList = true },
+                        textStyle = LocalTextStyle.current.copy(color = PokeTextPri, fontSize = 9.sp),
+                        singleLine = true,
+                        enabled = panel.pokemon != null,
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                        cursorBrush = SolidColor(PokeAccent)
+                    )
+                    if (query.isEmpty()) {
+                        Text(
+                            text = if (panel.pokemon == null) "포켓몬 먼저"
+                                   else if (selectedName.isNotEmpty()) selectedName else "기술 검색...",
+                            color = if (selectedName.isNotEmpty() && panel.pokemon != null) PokeTextPri else PokeTextSec,
+                            fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            // 목록
+            if (showList && (isRegisteredMode || panel.pokemon != null)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth().zIndex(3f)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFF1A1A1A))
+                        .border(1.dp, PokeBorder, RoundedCornerShape(4.dp))
+                        .heightIn(max = 180.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (displayMoves.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), Alignment.Center) {
+                            Text("검색 결과 없음", color = PokeTextSec, fontSize = 8.sp)
+                        }
+                    }
+                    displayMoves.forEach { move ->
+                        val isSelected = move.id == panel.selectedMoveId
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(if (isSelected) PokeAccent.copy(alpha = 0.15f) else Color.Transparent)
+                                .clickable {
+                                    panel.selectedMoveId = move.id
+                                    query = move.name_ko
+                                    showList = false
+                                    onRequestFocus(false)
+                                }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TypeBadge(move.type)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                move.name_ko, fontSize = 9.sp,
+                                color = if (isSelected) PokeAccent else PokeTextPri,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                            Text("${move.power}", fontSize = 8.sp, color = PokeTextSec)
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (move.category == "physical") "물" else "특", fontSize = 7.sp, color = PokeTextSec)
+                        }
+                        HorizontalDivider(color = PokeBorder.copy(alpha = 0.2f), thickness = 0.5.dp)
+                    }
+                }
             }
         }
 
-        // 기술 목록
-        if (showList && panel.pokemon != null) {
+    } else {
+        // ══════════════════════════════════════════════════════════
+        // 상대 포켓몬: moves_db 전체 자동완성 (포켓몬 무관 독립)
+        // ══════════════════════════════════════════════════════════
+        var query by remember { mutableStateOf("") }
+        var showList by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
+
+        val selectedName = remember(panel.selectedMoveId) {
+            if (panel.selectedMoveId > 0) Repo.movesById[panel.selectedMoveId]?.name_ko ?: "" else ""
+        }
+        val displayMoves = remember(query) { Repo.filterMovesByName(query, limit = 40) }
+
+        Text("기술", color = PokeTextSec, fontSize = 8.sp)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth().height(32.dp)
+                    .border(1.dp, if (showList) PokeAccent else PokeBorder, RoundedCornerShape(4.dp))
+                    .clickable {
+                        onRequestFocus(true); showList = true; focusRequester.requestFocus()
+                    }
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                BasicTextField(
+                    value = query,
+                    onValueChange = { q -> query = q; showList = true },
+                    textStyle = LocalTextStyle.current.copy(color = PokeTextPri, fontSize = 9.sp),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                    cursorBrush = SolidColor(PokeAccent)
+                )
+                if (query.isEmpty()) {
+                    Text(
+                        text = if (selectedName.isNotEmpty()) selectedName else "기술 검색...",
+                        color = if (selectedName.isNotEmpty()) PokeTextPri else PokeTextSec,
+                        fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // 공통 기술 목록
+        if (showList) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(3f)
+                    .fillMaxWidth().zIndex(3f)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF1E1E1E))
+                    .background(Color(0xFF1A1A1A))
                     .border(1.dp, PokeBorder, RoundedCornerShape(4.dp))
-                    .heightIn(max = 200.dp)
+                    .heightIn(max = 180.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                allMoves.forEach { move ->
+                if (displayMoves.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), Alignment.Center) {
+                        Text("검색 결과 없음", color = PokeTextSec, fontSize = 8.sp)
+                    }
+                }
+                displayMoves.forEach { move ->
                     val isSelected = move.id == panel.selectedMoveId
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (isSelected) PokeAccent.copy(alpha = 0.12f) else Color.Transparent)
+                            .background(if (isSelected) PokeAccent.copy(alpha = 0.15f) else Color.Transparent)
                             .clickable {
                                 panel.selectedMoveId = move.id
+                                query = move.name_ko
                                 showList = false
+                                onRequestFocus(false)
                             }
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -597,21 +664,16 @@ private fun MoveSearchField(panel: PanelState) {
                         TypeBadge(move.type)
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            move.name_ko,
-                            fontSize = 9.sp,
+                            move.name_ko, fontSize = 9.sp,
                             color = if (isSelected) PokeAccent else PokeTextPri,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
-                        Text("(${move.power})", fontSize = 8.sp, color = PokeTextSec)
+                        Text("${move.power}", fontSize = 8.sp, color = PokeTextSec)
                         Spacer(Modifier.width(4.dp))
-                        Text(
-                            if (move.category == "physical") "물" else "특",
-                            fontSize = 7.sp, color = PokeTextSec
-                        )
+                        Text(if (move.category == "physical") "물" else "특", fontSize = 7.sp, color = PokeTextSec)
                     }
-                    HorizontalDivider(color = PokeBorder.copy(alpha = 0.25f), thickness = 0.5.dp)
+                    HorizontalDivider(color = PokeBorder.copy(alpha = 0.2f), thickness = 0.5.dp)
                 }
             }
         }
@@ -619,7 +681,9 @@ private fun MoveSearchField(panel: PanelState) {
 }
 
 
+
 // ─────────────────────────────────────────────────────────────────────────────
+
 // 단순 드롭다운 (도구 / 상태이상 — 고정 옵션 목록)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
@@ -708,6 +772,26 @@ private fun BattleBoardPanel(state: OverlayUIState, dbCount: Int, modifier: Modi
         Spacer(Modifier.height(4.dp))
 
         if (atkPoke != null && defPoke != null) {
+            // ── Compose 변경 추적을 위해 모든 동적 상태값을 명시적으로 읽기 ──
+            // mutableStateListOf의 각 원소를 직접 읽어야 Compose가 변경을 감지함
+            val atkRanks = state.attacker.ranks.toList()   // ranks 변경 → 리컴포지션
+            val defRanks = state.defender.ranks.toList()
+            val atkEvs   = state.attacker.evs.toList()     // ev 변경 → 리컴포지션
+            val defEvs   = state.defender.evs.toList()
+            val atkMoveId = state.attacker.selectedMoveId  // 기술 변경 → 리컴포지션
+            val defMoveId = state.defender.selectedMoveId
+            val weather   = state.weatherId
+            val terrain   = state.terrainId
+            val wall      = state.globalWallId
+            val isCrit    = state.isCritical
+            val atkAbility = state.attacker.selectedAbility
+            val defAbility = state.defender.selectedAbility
+            val atkItem   = state.attacker.heldItemId
+            val defItem   = state.defender.heldItemId
+            val atkStatus = state.attacker.statusConditionId
+            val defStatus = state.defender.statusConditionId
+            // 위 변수들이 실제로 사용되지 않아도 읽는 것만으로 스냅샷 의존성 등록됨
+
             val atkStats = state.attacker.calcActualStats()
             val defStats = state.defender.calcActualStats()
 
@@ -761,23 +845,6 @@ private fun BattleBoardPanel(state: OverlayUIState, dbCount: Int, modifier: Modi
                     Text(foeResult.koSummary, color = PokeTextSec, fontSize = 8.sp)
                 }
 
-                Spacer(Modifier.height(6.dp))
-
-                val atkSpe = CalcEngine.effectiveSpeed(
-                    atkStats[5], state.attacker.ranks[5], state.attacker.selectedAbility,
-                    state.weatherId, state.attacker.heldItemId, state.attacker.statusConditionId
-                )
-                val defSpe = CalcEngine.effectiveSpeed(
-                    defStats[5], state.defender.ranks[5], state.defender.selectedAbility,
-                    state.weatherId, state.defender.heldItemId, state.defender.statusConditionId
-                )
-                val speedText = when {
-                    atkSpe > defSpe -> "${atkPoke.name_ko} 선공"
-                    defSpe > atkSpe -> "${defPoke.name_ko} 선공"
-                    else -> "동속"
-                }
-                Text(speedText, color = PokeGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text("$atkSpe vs $defSpe", color = PokeTextSec, fontSize = 8.sp)
             }
         } else {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -824,11 +891,65 @@ private fun EnvironmentDropdownRow(state: OverlayUIState) {
 
         Spacer(Modifier.height(4.dp))
 
+        // ── 내 포켓몬 불러오기 (공격자만) ──────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            RegisteredPokemonLoader(
+                state = state,
+                isAttacker = true,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.weight(2f)) // 나머지 공간 채우기
+        }
+
+        Spacer(Modifier.height(4.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val atkPoke = state.attacker.pokemon
+            val defPoke = state.defender.pokemon
+            var atkSpe = 0
+            var defSpe = 0
+            var showSpeed = false
+
+            if (atkPoke != null && defPoke != null) {
+                showSpeed = true
+                val atkStats = state.attacker.calcActualStats()
+                val defStats = state.defender.calcActualStats()
+                atkSpe = CalcEngine.effectiveSpeed(
+                    atkStats[5], state.attacker.ranks[5], state.attacker.selectedAbility,
+                    state.weatherId, state.attacker.heldItemId, state.attacker.statusConditionId
+                )
+                defSpe = CalcEngine.effectiveSpeed(
+                    defStats[5], state.defender.ranks[5], state.defender.selectedAbility,
+                    state.weatherId, state.defender.heldItemId, state.defender.statusConditionId
+                )
+            }
+
+            // 왼쪽 패널 (내 포켓몬 선공/후공 표시)
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                if (showSpeed) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (atkSpe > defSpe) {
+                            Text("선공", color = PokeGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        } else if (atkSpe == defSpe) {
+                            Text("동속", color = PokeTextSec, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("후공", color = PokeRed, fontSize = 9.sp)
+                        }
+                        Text("Spe $atkSpe", color = PokeTextSec, fontSize = 7.sp)
+                    }
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // 중앙 급소 버튼
             val critColor = if (state.isCritical) PokeRed else Color(0xFF2C2C2C)
             val textColor = if (state.isCritical) Color.White else PokeTextSec
             Box(
@@ -843,6 +964,24 @@ private fun EnvironmentDropdownRow(state: OverlayUIState) {
                     text = if (state.isCritical) "💥 급소(Critical) ON" else "💥 급소(Critical) OFF",
                     color = textColor, fontSize = 8.sp, fontWeight = FontWeight.Bold
                 )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            // 오른쪽 패널 (상대 포켓몬 선공/후공 표시)
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (showSpeed) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (defSpe > atkSpe) {
+                            Text("선공", color = PokeGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        } else if (atkSpe == defSpe) {
+                            Text("동속", color = PokeTextSec, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("후공", color = PokeRed, fontSize = 9.sp)
+                        }
+                        Text("Spe $defSpe", color = PokeTextSec, fontSize = 7.sp)
+                    }
+                }
             }
         }
     }
@@ -949,5 +1088,134 @@ fun TypeBadge(type: String) {
             .padding(horizontal = 3.dp, vertical = 1.dp)
     ) {
         Text(TypeNames.toKo(type), color = Color.White, fontSize = 6.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 내 포켓몬 불러오기 (환경 패널 하단 전용 버튼)
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun RegisteredPokemonLoader(state: OverlayUIState, isAttacker: Boolean, modifier: Modifier = Modifier) {
+    val panel = if (isAttacker) state.attacker else state.defender
+    val opponentPanel = if (isAttacker) state.defender else state.attacker
+
+    val savedPokemons = remember(MyPokemonStore.list.size) {
+        MyPokemonStore.list.mapNotNull { save ->
+            val base = MyPokemonStore.getBasePokemon(save) ?: return@mapNotNull null
+            Pair(base, save)
+        }
+    }
+
+    var showList by remember { mutableStateOf(false) }
+
+    // 상대방의 현재 속도 계산 (선택 안되어 있으면 0)
+    val oppSpe = if (opponentPanel.pokemon != null) {
+        val stats = opponentPanel.calcActualStats()
+        CalcEngine.effectiveSpeed(
+            stats[5], opponentPanel.ranks[5], opponentPanel.selectedAbility,
+            state.weatherId, opponentPanel.heldItemId, opponentPanel.statusConditionId
+        )
+    } else 0
+
+    Column(modifier = modifier) {
+        // "등록된 포켓몬" 버튼
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (showList) PokeAccent else PokeBorder)
+                .clickable { showList = !showList }
+                .padding(vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("등록된 포켓몬", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
+
+        // 팝업 리스트
+        if (showList) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp)
+                    .zIndex(5f)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF1E1E1E))
+                    .border(1.dp, PokeAccent.copy(0.5f), RoundedCornerShape(4.dp))
+                    .heightIn(max = 160.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                if (savedPokemons.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                        Text("저장된 포켓몬이 없습니다.", color = PokeTextSec, fontSize = 8.sp)
+                    }
+                } else {
+                    savedPokemons.forEach { (pokemon, save) ->
+                        val evSummary = save.evs
+                            .zip(listOf("H","A","B","C","D","S"))
+                            .filter { it.first > 0 }
+                            .joinToString(" ") { "${it.second}${it.first}" }
+                            
+                        // 불러올 포켓몬의 스피드 미리 계산
+                        val savedSpe = run {
+                            val baseSpe = pokemon.stats.getOrNull(5) ?: 0
+                            val rawSpe = CalcEngine.calcStat(baseSpe, save.evs[5], save.toNature().multiplier(5))
+                            CalcEngine.effectiveSpeed(
+                                baseSpe = rawSpe,
+                                rankStage = 0,
+                                ability = save.abilityEn,
+                                weather = state.weatherId,
+                                heldItemId = save.heldItemId,
+                                statusConditionId = "none"
+                            )
+                        }
+
+                        val speedBadge = if (oppSpe > 0) {
+                            when {
+                                savedSpe > oppSpe -> "선공"
+                                savedSpe < oppSpe -> "후공"
+                                else -> "동속"
+                            }
+                        } else ""
+
+                        val speedColor = when(speedBadge) {
+                            "선공" -> PokeGreen
+                            "후공" -> PokeRed
+                            else -> PokeTextSec
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    panel.loadFromSave(pokemon, save)
+                                    showList = false
+                                }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    pokemon.name_ko,
+                                    color = PokeTextPri, fontSize = 10.sp, fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    evSummary,
+                                    color = PokeTextSec, fontSize = 7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            
+                            // 스피드 비교 뱃지
+                            if (speedBadge.isNotEmpty()) {
+                                Text(speedBadge, color = speedColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            
+                            Text("불러오기", color = PokeAccent, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        }
+                        HorizontalDivider(color = PokeBorder.copy(alpha = 0.3f), thickness = 0.5.dp)
+                    }
+                }
+            }
+        }
     }
 }

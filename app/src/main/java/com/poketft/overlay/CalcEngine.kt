@@ -97,36 +97,41 @@ object CalcEngine {
         heldItemId: String,
         atkAbility: String,
         weather: String,
-        statusConditionId: String = "none"
+        statusConditionId: String = "none",
+        isBodyPress: Boolean = false
     ): Int {
         var v = atkWithRank.toDouble()
         when (heldItemId) {
-            "choice-band" -> if (isPhysical) v *= 1.5
-            "choice-specs" -> if (!isPhysical) v *= 1.5
             "muscle-band" -> if (isPhysical) v *= 1.1
             "wise-glasses" -> if (!isPhysical) v *= 1.1
         }
-        if (!isPhysical && atkAbility == "solar-power" && weather == "sun") v *= 1.5
-        if (isPhysical && atkAbility == "guts" && statusConditionId != "none") v *= 1.5
+        if (!isBodyPress) {
+            when (heldItemId) {
+                "choice-band" -> if (isPhysical) v *= 1.5
+                "choice-specs" -> if (!isPhysical) v *= 1.5
+            }
+            if (!isPhysical && atkAbility == "solar-power" && weather == "sun") v *= 1.5
+            if (isPhysical && atkAbility == "guts" && statusConditionId != "none") v *= 1.5
+        }
         return floor(v).toInt().coerceAtLeast(1)
     }
 
     /** 랭크 반영 후 방어 측 실질 방어/특방 (날씨·돌격조끼 등) */
     fun adjustedDefenseStat(
         defWithRank: Int,
-        isPhysical: Boolean,
+        isTargetingPhysicalDefense: Boolean,
         defTypes: List<String>,
         weather: String,
         defenderHeldId: String
     ): Int {
         var v = defWithRank.toDouble()
-        if (!isPhysical && weather == "sand" &&
+        if (!isTargetingPhysicalDefense && weather == "sand" &&
             defTypes.any { it.equals("rock", ignoreCase = true) }
         ) v *= 1.5
-        if (isPhysical && (weather == "snow" || weather == "hail") &&
+        if (isTargetingPhysicalDefense && (weather == "snow" || weather == "hail") &&
             defTypes.any { it.equals("ice", ignoreCase = true) }
         ) v *= 1.5
-        if (!isPhysical && defenderHeldId == "assault-vest") v *= 1.5
+        if (!isTargetingPhysicalDefense && defenderHeldId == "assault-vest") v *= 1.5
         return floor(v).toInt().coerceAtLeast(1)
     }
 

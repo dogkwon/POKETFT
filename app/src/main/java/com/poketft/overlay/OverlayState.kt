@@ -40,7 +40,7 @@ class PanelState {
         selectedMoveId = -1
     }
 
-    /** 검색/선택 시 종족값·배울 수 있는 기술 즉시 바인딩 */
+    /** 검색/선택 시 종족값·특성 바인딩. 기술 선택은 독립적으로 유지 */
     fun bindPokemonFromSearch(p: Pokemon, resetBuild: Boolean = false) {
         pokemon = p
         if (resetBuild) {
@@ -51,14 +51,7 @@ class PanelState {
             typeBoostHeldId = "none"
         }
         applyDefaultAbility(p)
-        reloadLearnableMoves(p)
-    }
-
-    /** learnable_moves → assignedMoveIds + 첫 기술 선택 */
-    fun reloadLearnableMoves(p: Pokemon) {
-        assignedMoveIds.clear()
-        assignedMoveIds.addAll(Repo.getLearnableMoves(p).map { it.id })
-        selectedMoveId = assignedMoveIds.firstOrNull() ?: -1
+        // selectedMoveId는 건드리지 않음 — 기술 선택은 MoveSearchField가 독립 관리
     }
 
     /** @deprecated bindPokemonFromSearch 사용 */
@@ -79,9 +72,8 @@ class PanelState {
             assignedMoveIds.clear()
             assignedMoveIds.addAll(save.moveIds)
             selectedMoveId = save.moveIds.firstOrNull() ?: -1
-        } else {
-            reloadLearnableMoves(p)
         }
+        // save.moveIds가 비어있으면 selectedMoveId 그대로 유지 (독립 선택 방식)
 
         // 특성 복원
         if (save.abilityEn.isNotEmpty()) {
